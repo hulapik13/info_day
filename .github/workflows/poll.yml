@@ -1,7 +1,7 @@
 name: poll-gdebenz
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *'   # резервный старт (best-effort у GitHub)
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -11,15 +11,15 @@ concurrency:
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 32
+    timeout-minutes: 28
     steps:
       - uses: actions/checkout@v4
-      - name: Poll 3 sources every 5 min for ~30 min
+      - name: Poll 3 sources every 5 min (~20 min)
         run: |
           git config user.name "poller"
           git config user.email "actions@github.com"
           UA="info_day/1.0 (+github.com/hulapik13/info_day)"
-          for i in $(seq 1 6); do
+          for i in $(seq 1 5); do
             echo "::group::итерация $i $(date -u +%T)"
             curl -sS -m 40 -A "$UA" "https://gdebenz.org/api/stations?lat1=55.15&lat2=56.25&lon1=36.5&lon2=38.75" -o src_gdebenz.json || echo "gdebenz fail"
             curl -sS -m 40 -A "$UA" "https://gdebenzi.ru/api/stations.php?bbox=36.5,55.15,38.75,56.25" -o src_gdebenzi.json || echo "gdebenzi fail"
@@ -28,5 +28,16 @@ jobs:
             git add live.json
             git commit -m "live: агрегат $(date -u +%FT%TZ)" && git push || echo "без изменений"
             echo "::endgroup::"
-            [ "$i" -lt 6 ] && sleep 300 || true
+            [ "$i" -lt 5 ] && sleep 300 || true
           done
+      - name: Self-restart (chain via PAT)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          if [ -n "$GH_TOKEN" ]; then
+            gh workflow run poll-gdebenz -R hulapik13/info_day && echo "следующий прогон поставлен в очередь"
+          else
+            echo "секрет PAT не задан — самоперезапуск пропущен (останется только расписание)"
+          fi
