@@ -2,7 +2,7 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const map=L.map('map',{preferCanvas:true,tap:true}).setView([55.75,37.62],10);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM · наличие © ГдеБенз'}).addTo(map);
-const canvas=L.canvas({padding:.5});
+const canvas=L.canvas({padding:.5});map.attributionControl.setPrefix(false);
 const FORDER=['92','95','98','100','ДТ'];
 
 let ST=[],IDX={},REPORTS={},MY=null,fetchedAt=0;
@@ -29,7 +29,7 @@ function effective(s){
 }
 function visible(s){
   if(state.st.size&&(!s.s||!state.st.has(s.s)))return false;
-  if(state.fuel.size){const {avail}=fuelInfo(s);if(![...state.fuel].every(f=>avail.has(f)))return false;}
+  if(state.fuel.size){const {avail}=fuelInfo(s);if(![...state.fuel].some(f=>avail.has(f)))return false;}
   if(state.q){const t=(s.n+' '+s.b+' '+s.ad).toLowerCase();if(!t.includes(state.q.toLowerCase()))return false;}
   return true;
 }

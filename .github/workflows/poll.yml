@@ -1,43 +1,40 @@
 name: poll-gdebenz
 on:
   schedule:
-    - cron: '*/5 * * * *'   # GitHub минимум ~5 минут
+    - cron: '*/15 * * * *'   # перезапуск-цепочка (расписание у GitHub best-effort)
   workflow_dispatch: {}
 permissions:
   contents: write
 concurrency:
   group: poll
-  cancel-in-progress: false
+  cancel-in-progress: false   # новый запуск ждёт текущий → непрерывность
 jobs:
   poll:
     runs-on: ubuntu-latest
+    timeout-minutes: 32
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch gdebenz snapshot
+      - name: Poll gdebenz every 5 min for ~30 min
         run: |
-          set -e
-          curl -sS -m 40 -A "info_day/1.0 (+github.com/hulapik13/info_day)" \
-            "https://gdebenz.org/api/stations?lat1=55.15&lat2=56.25&lon1=36.5&lon2=38.75" -o /tmp/raw.json
-          python3 - <<'PY'
+          git config user.name "poller"
+          git config user.email "actions@github.com"
+          for i in $(seq 1 6); do
+            echo "::group::итерация $i $(date -u +%T)"
+            curl -sS -m 40 -A "info_day/1.0 (+github.com/hulapik13/info_day)" \
+              "https://gdebenz.org/api/stations?lat1=55.15&lat2=56.25&lon1=36.5&lon2=38.75" -o /tmp/raw.json || { echo "fetch fail"; sleep 300; continue; }
+            python3 - <<'PY'
           import json,datetime
           d=json.load(open('/tmp/raw.json'))
           keep=[{'id':x['osm_id'],'n':x.get('name') or 'АЗС','b':x.get('brand') or '',
                  'la':round(x['lat'],6),'lo':round(x['lon'],6),'ad':x.get('addr') or '',
                  's':x.get('status'),'fn':x.get('fuels_now') or '',
                  'pr':{f:{'p':v.get('p'),'t':v.get('t'),'n':v.get('n')} for f,v in (x.get('prices_now') or {}).items()}} for x in d]
-          out={'fetched_at':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-               'source':'gdebenz.ru','stations':keep}
+          out={'fetched_at':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),'source':'gdebenz.ru','stations':keep}
           json.dump(out,open('live.json','w'),ensure_ascii=False,separators=(',',':'))
           print('stations',len(keep))
           PY
-      - name: Commit if changed
-        run: |
-          git config user.name "poller"
-          git config user.email "actions@github.com"
-          if ! git diff --quiet live.json; then
             git add live.json
-            git commit -m "live: снимок наличия $(date -u +%FT%TZ)"
-            git push
-          else
-            echo "без изменений"
-          fi
+            git commit -m "live: снимок $(date -u +%FT%TZ)" && git push || echo "без изменений"
+            echo "::endgroup::"
+            [ "$i" -lt 6 ] && sleep 300 || true
+          done
