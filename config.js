@@ -1,11 +1,7 @@
-// ┌────────────────────────────────────────────────────────────────┐
-// │  СЮДА вставить конфиг Firebase (см. README, шаг 2).             │
-// │  Пока не вставлен — сайт работает как карта, но БЕЗ живых       │
-// │  отметок (общей базы нет).                                      │
-// └────────────────────────────────────────────────────────────────┘
+// Firebase — проект analytics-972ad (Realtime Database, europe-west1).
 window.FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  databaseURL: "",   // ВАЖНО: именно databaseURL (Realtime Database)
-  projectId: ""
+  apiKey: "AIzaSyCHl0drWXlmDv_sKFMIj3heS451VK2j_5Q",
+  authDomain: "analytics-972ad.firebaseapp.com",
+  databaseURL: "https://analytics-972ad-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "analytics-972ad"
 };
