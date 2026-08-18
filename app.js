@@ -44,14 +44,14 @@ function refresh(){
     const rad=s.s&&s.s!=='no'?6:(s.s?5:4);
     const stale=s.sts&&(Date.now()-s.sts*1000>6*3600e3);
     const style={radius:rad,fillColor:eff.col,weight:hasFriend?2.5:1,color:hasFriend?'#2b9bf4':'#0b0d12',fillOpacity:s.s?(stale?.45:.9):.4};
-    if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openPopup(s.id)).addTo(map);}
+    if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openSheet(s.id)).addTo(map);}
     else markers[s.id].setStyle(style);
   }
   $('stat').textContent=`Показано ${shown} из ${ST.length}`+(window.__fbReady?` · отметок друзей ${fresh}`:'');
 }
 
 let curPick={},curQ=null,curId=null;
-function openPopup(id){
+function openSheet(id){
   const s=IDX[id];if(!s)return;curPick={};curQ=null;curId=id;
   const {avail,sold}=fuelInfo(s),eff=effective(s),r=REPORTS[id];
   // разбивка по топливу
@@ -81,17 +81,23 @@ function openPopup(id){
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
     <div style="font-size:10.5px;color:var(--mut);margin-top:6px">источники: ${(s.src||['gdebenz']).join(', ')}</div>\n    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
-    ${form}`;
-  L.popup({maxWidth:300,autoPanPadding:[10,10]}).setLatLng([s.la,s.lo]).setContent(html).openOn(map);
+    ${fbOn?`<button id="revealForm" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;border:1px solid var(--acc);background:transparent;color:var(--acc);font-weight:600;font-size:15px;cursor:pointer">➕ Отметить наличие</button><div id="formWrap" style="display:none">${form}</div>`:''}`;
+  const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
+  $('sheet').classList.add('on');$('backdrop').classList.add('on');
+  try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
+    const rv=$('revealForm');if(rv)rv.onclick=()=>{$('formWrap').style.display='block';rv.style.display='none';$('formWrap').scrollIntoView({behavior:'smooth',block:'nearest'});};
     const sv=$('psave');if(sv)sv.onclick=()=>{const yes=Object.keys(curPick).filter(f=>curPick[f]==='yes'),no=Object.keys(curPick).filter(f=>curPick[f]==='no');
       if(!yes.length&&!no.length&&curQ==null){alert('Отметь топливо или очередь');return;}
       const who=($('pwho').value||'').trim();localStorage.setItem('br_name',who);
-      window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>map.closePopup()).catch(e=>alert('Ошибка: '+e.message));};
+      window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>closeSheet()).catch(e=>alert('Ошибка: '+e.message));};
   },30);
 }
+function closeSheet(){$('sheet').classList.remove('on');$('backdrop').classList.remove('on');}
+window.closeSheet=closeSheet;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=(rr&&rr.cars!=null)?` · ~${rr.cars} машин`:(s.q?` · ${s.q}`:'');const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
   if(navigator.share){navigator.share({title:s.n,text});return;}window.open('https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text),'_blank');};
 

@@ -6,14 +6,14 @@
 <style>
 :root{--bg:#12141a;--panel:#1b1f28;--line:#2c323f;--tx:#e7eaf0;--mut:#9aa4b2;--acc:#ffb020;--g:#28c76f;--r:#ff5a5a;--y:#ffc63d;--o:#ff8a3d;--blue:#2b9bf4}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);overscroll-behavior:none}
+html,body{margin:0;height:100%;width:100%;overflow-x:hidden;font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);overscroll-behavior:none}
 #wrap{display:flex;flex-direction:column;height:100dvh}
 #top{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 10px;z-index:1000}
 .trow{display:flex;align-items:center;gap:8px}
-.brand{font-size:16px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap}
-.upd{color:var(--mut);font-size:11px;line-height:1.15;flex:1;min-width:0}
+.brand{font-size:15px;font-weight:600;display:flex;align-items:center;gap:4px;white-space:nowrap;flex:0 0 auto}
+.upd{color:var(--mut);font-size:11px;line-height:1.15;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .upd b{color:var(--g);font-weight:500}
-#togg{flex:0 0 auto;background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:8px 12px;font-size:14px;cursor:pointer}
+#togg{flex:0 0 auto;background:var(--acc);color:#231800;border:none;border-radius:9px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer}
 #drawer{display:none;margin-top:8px}
 #drawer.open{display:block}
 input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:16px;margin-bottom:8px}
@@ -57,14 +57,24 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   #drawer{display:block!important;margin-top:12px}
   .brand{font-size:18px}
 }
+
+#backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);opacity:0;pointer-events:none;transition:opacity .2s;z-index:1500}
+#backdrop.on{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;transform:translateY(101%);transition:transform .26s cubic-bezier(.3,.8,.3,1);z-index:1600;max-height:78dvh;display:flex;flex-direction:column;box-shadow:0 -10px 34px rgba(0,0,0,.45)}
+#sheet.on{transform:translateY(0)}
+.handle{width:42px;height:4px;border-radius:2px;background:var(--line);margin:9px auto 2px;flex:0 0 auto}
+#sheetc{overflow-y:auto;padding:6px 16px calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.sheetX{position:absolute;top:8px;right:12px;width:34px;height:34px;border-radius:50%;background:#0f1218;border:1px solid var(--line);color:var(--tx);font-size:18px;cursor:pointer;line-height:1}
+@media(min-width:820px){#sheet{left:auto;right:20px;bottom:20px;width:390px;border-radius:16px;max-height:82vh}#backdrop{background:transparent}}
 </style></head><body>
 <div id="wrap">
   <div id="top">
     <div class="trow">
       <span class="brand">⛽ Бензин-радар</span>
-      <span class="upd" id="src">загрузка…</span>
+      <span style="flex:1;min-width:0"></span>
       <button id="togg">Фильтры</button>
     </div>
+    <div class="upd" id="src" style="margin-top:3px">загрузка…</div>
     <div id="warn"></div>
     <div id="drawer">
       <input type="search" id="q" placeholder="Поиск: название, бренд, адрес…">
@@ -88,7 +98,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="map"></div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=7"></script>
+<script src="config.js?v=10"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -97,5 +107,7 @@ window.__fbReady=false;
     s2.onload=function(){try{firebase.initializeApp(c);window.__db=firebase.database();window.__fbReady=true;if(window.initRealtime)initRealtime();}catch(e){console.error(e);}};document.head.appendChild(s2);};
   document.head.appendChild(s1);})();
 </script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=10"></script>
+<div id="backdrop" onclick="closeSheet()"></div>
+<div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 </body></html>
