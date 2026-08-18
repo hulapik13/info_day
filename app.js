@@ -61,12 +61,13 @@ function openPopup(id){
   // отметка друзей
   let fr='';
   if(r){let b='';(r.yes||[]).forEach(f=>b+=`<span class="fb g">${esc(f)} ✓</span>`);(r.no||[]).forEach(f=>b+=`<span class="fb r">${esc(f)} ✗</span>`);
-    fr=`<div style="border-left:3px solid #2b9bf4;padding-left:9px;margin:9px 0"><div style="font-size:11px;color:var(--mut)">ДРУЗЬЯ · ${ago(r.ts)}${r.who?' · '+esc(r.who):''}</div><div class="pf">${b}</div>${r.q!=null?`<div style="font-size:12px;color:var(--y)">${qlabel(r.q)}</div>`:''}${r.note?`<div style="font-size:11px;color:var(--mut)">«${esc(r.note)}»</div>`:''}</div>`;}
+    fr=`<div style="border-left:3px solid #2b9bf4;padding-left:9px;margin:9px 0"><div style="font-size:11px;color:var(--mut)">ДРУЗЬЯ · ${ago(r.ts)}${r.who?' · '+esc(r.who):''}</div><div class="pf">${b}</div>${r.cars!=null?`<div style="font-size:13px;color:var(--y)">🚗 примерно ${r.cars} ${r.cars%10==1&&r.cars%100!=11?'машина':(r.cars%10>=2&&r.cars%10<=4&&(r.cars%100<10||r.cars%100>=20)?'машины':'машин')} в очереди</div>`:(r.q!=null?`<div style="font-size:12px;color:var(--y)">${qlabel(r.q)}</div>`:'')}${r.note?`<div style="font-size:11px;color:var(--mut)">«${esc(r.note)}»</div>`:''}</div>`;}
   const fbOn=window.__fbReady;
   const fset=(sold.size?[...sold].filter(f=>FORDER.includes(f)):FORDER).sort((a,b)=>FORDER.indexOf(a)-FORDER.indexOf(b));
   const form=fbOn?`<div class="frm"><div style="font-size:11px;color:var(--mut);margin-bottom:5px">СВОЯ ОТМЕТКА (видят друзья)</div>
     ${fset.map(f=>`<div class="fuelrow"><span class="fn">${esc(f)}</span><span class="mini" data-f="${esc(f)}" data-v="yes">есть</span><span class="mini" data-f="${esc(f)}" data-v="no">нет</span></div>`).join('')}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:7px 0"><span class="mini" data-q="0">оч:нет</span><span class="mini" data-q="1">неб.</span><span class="mini" data-q="2">больш.</span><span class="mini" data-q="3">час+</span></div>
+    <input type="number" id="pcars" placeholder="машин в очереди (примерно)" min="0" max="500" inputmode="numeric">
     <input type="text" id="pnote" placeholder="коммент (лимит, цена)" maxlength="80">
     <input type="text" id="pwho" placeholder="имя" maxlength="20" value="${esc(localStorage.getItem('br_name')||'')}">
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
@@ -84,10 +85,10 @@ function openPopup(id){
     const sv=$('psave');if(sv)sv.onclick=()=>{const yes=Object.keys(curPick).filter(f=>curPick[f]==='yes'),no=Object.keys(curPick).filter(f=>curPick[f]==='no');
       if(!yes.length&&!no.length&&curQ==null){alert('Отметь топливо или очередь');return;}
       const who=($('pwho').value||'').trim();localStorage.setItem('br_name',who);
-      window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,note:($('pnote').value||'').trim(),yes,no}).then(()=>map.closePopup()).catch(e=>alert('Ошибка: '+e.message));};
+      window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>map.closePopup()).catch(e=>alert('Ошибка: '+e.message));};
   },30);
 }
-window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''} — ${url}`;
+window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=rr&&rr.cars!=null?` · ~${rr.cars} машин в очереди`:'';const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
   if(navigator.share){navigator.share({title:s.n,text});return;}window.open('https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text),'_blank');};
 
 window.initRealtime=function(){window.__db.ref('reports').limitToLast(4000).on('value',snap=>{const l={};snap.forEach(ch=>{const r=ch.val();if(!r||!r.id)return;if(!l[r.id]||r.ts>l[r.id].ts)l[r.id]=r;});REPORTS=l;refresh();});};
