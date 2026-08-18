@@ -54,6 +54,11 @@ for s in g0:
     if not st and a:
         am={'ok':'yes','empty':'no'}.get(a.get('status'))
         if am and NOW-isots(a.get('status_updated_at') or '')<12*3600:st=am
+    # когда реально обновляли наличие (метку времени дают gdebenzi/азсрадар)
+    sts=None;stssrc=None
+    if m1 and m1.get('markts'):sts=int(m1['markts']);stssrc='gdebenzi'
+    a_ts=isots(a.get('status_updated_at') or '') if a else 0
+    if a_ts and a_ts>(sts or 0):sts=int(a_ts);stssrc='азсрадар'
     # очередь в машинах
     q=None;qsrc=None
     if m1 and m1.get('queueTxt'):q=m1['queueTxt'];qsrc='gdebenzi'
@@ -85,7 +90,7 @@ for s in g0:
                 'la':round(la,6),'lo':round(lo,6),'ad':s.get('addr') or '',
                 's':st,'fn':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in avail]),
                 'no':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in no]),
-                'q':q,'qsrc':qsrc,'lim':lim,'pr':pr,'src':srcs})
+                'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'lim':lim,'pr':pr,'src':srcs})
 
 # добавим станции из gdebenzi/азсрадар, которых нет в базе, но со свежим реальным статусом
 def add_extra(lst,latk,lok,getst,getname,used,srcname):
@@ -101,7 +106,7 @@ def add_extra(lst,latk,lok,getst,getname,used,srcname):
         out.append({'id':srcname+':'+str(o.get('id')),'n':getname(o) or 'АЗС','b':o.get('brand') or '',
                     'la':round(la,6),'lo':round(lo,6),'ad':o.get('address') or '',
                     's':st,'fn':'','no':'','q':(o.get('queueTxt') if srcname=='gdebenzi' else None),
-                    'qsrc':srcname,'lim':None,'pr':{},'src':[srcname]})
+                    'qsrc':srcname,'sts':int(o.get('markts')) if o.get('markts') else None,'stssrc':srcname,'lim':None,'pr':{},'src':[srcname]})
         base_idx.setdefault(cell(la,lo),[]).append(out[-1]);cnt+=1
     return cnt
 e1=add_extra(g1,'lat','lon',lambda o:o.get('status') if (NOW-(o.get('markts') or 0)<12*3600) else None,lambda o:o.get('name'),used1,'gdebenzi')

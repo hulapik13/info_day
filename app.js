@@ -25,7 +25,7 @@ function fuelInfo(s){
 }
 function effective(s){
   const r=REPORTS[s.id];
-  let gt=fetchedAt;for(const f in (s.pr||{})){const t=parseT(s.pr[f].t);if(t>gt)gt=t;}
+  let gt=s.sts?s.sts*1000:fetchedAt;for(const f in (s.pr||{})){const t=parseT(s.pr[f].t);if(t>gt)gt=t;}
   if(r&&r.ts>gt){let col=r.yes&&r.yes.length?'#28c76f':(r.no&&r.no.length?'#ff5a5a':'#ffc63d');if(r.q>=2&&r.yes&&r.yes.length)col='#ffc63d';return {col,src:'friend',gt};}
   return {col:SCOL[s.s]||'#6b7686',src:'gdebenz',gt};
 }
@@ -42,7 +42,8 @@ function refresh(){
     shown++;const eff=effective(s);
     const hasFriend=REPORTS[s.id]&&Date.now()-REPORTS[s.id].ts<3600e3;if(hasFriend)fresh++;
     const rad=s.s&&s.s!=='no'?6:(s.s?5:4);
-    const style={radius:rad,fillColor:eff.col,weight:hasFriend?2.5:1,color:hasFriend?'#2b9bf4':'#0b0d12',fillOpacity:s.s?.9:.5};
+    const stale=s.sts&&(Date.now()-s.sts*1000>6*3600e3);
+    const style={radius:rad,fillColor:eff.col,weight:hasFriend?2.5:1,color:hasFriend?'#2b9bf4':'#0b0d12',fillOpacity:s.s?(stale?.45:.9):.4};
     if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openPopup(s.id)).addTo(map);}
     else markers[s.id].setStyle(style);
   }
@@ -75,6 +76,7 @@ function openPopup(id){
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
+    ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
