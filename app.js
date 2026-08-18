@@ -16,9 +16,11 @@ function parseT(t){return t?Date.parse(t.replace(' ','T')+'Z'):0;}
 function qlabel(q){return ['нет очереди','очередь небольшая','очередь большая','очередь час+'][q]||'';}
 
 // доступно/продаётся по видам
+function limHtml(s){if(!s.lim)return '';const e=Object.entries(s.lim);if(!e.length)return '';
+  return '<div style="font-size:12px;color:var(--o);margin-top:4px">⛔ лимит: '+e.map(x=>esc(x[0])+' — '+x[1]+' л').join(', ')+'</div>';}
 function fuelInfo(s){
   const avail=new Set((s.fn||'').split(',').filter(Boolean));
-  const sold=new Set([...avail,...Object.keys(s.pr||{})]);
+  const sold=new Set([...avail,...(s.no||'').split(',').filter(Boolean),...Object.keys(s.pr||{})]);
   return {avail,sold};
 }
 function effective(s){
@@ -52,7 +54,7 @@ function openPopup(id){
   const s=IDX[id];if(!s)return;curPick={};curQ=null;curId=id;
   const {avail,sold}=fuelInfo(s),eff=effective(s),r=REPORTS[id];
   // разбивка по топливу
-  let pf=FORDER.filter(f=>sold.has(f)).map(f=>`<span class="fb ${avail.has(f)?'g':'r'}">${f} ${avail.has(f)?'✓':'✗'}</span>`).join('');
+  const noset=new Set((s.no||'').split(',').filter(Boolean));let pf=FORDER.filter(f=>sold.has(f)).map(f=>`<span class="fb ${avail.has(f)?'g':'r'}">${f} ${avail.has(f)?'✓':'✗'}</span>`).join('');
   if(!pf)pf='<span style="color:var(--mut);font-size:13px">по видам топлива данных нет</span>';
   // цены
   const pr=s.pr||{};let priceRows='',t0=0;
@@ -73,10 +75,10 @@ function openPopup(id){
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
-    <div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>
+    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
-    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
+    <div style="font-size:10.5px;color:var(--mut);margin-top:6px">источники: ${(s.src||['gdebenz']).join(', ')}</div>\n    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
     ${form}`;
   L.popup({maxWidth:300,autoPanPadding:[10,10]}).setLatLng([s.la,s.lo]).setContent(html).openOn(map);
   setTimeout(()=>{
@@ -88,7 +90,7 @@ function openPopup(id){
       window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>map.closePopup()).catch(e=>alert('Ошибка: '+e.message));};
   },30);
 }
-window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=rr&&rr.cars!=null?` · ~${rr.cars} машин в очереди`:'';const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
+window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=(rr&&rr.cars!=null)?` · ~${rr.cars} машин`:(s.q?` · ${s.q}`:'');const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
   if(navigator.share){navigator.share({title:s.n,text});return;}window.open('https://t.me/share/url?url='+encodeURIComponent(url)+'&text='+encodeURIComponent(text),'_blank');};
 
 window.initRealtime=function(){window.__db.ref('reports').limitToLast(4000).on('value',snap=>{const l={};snap.forEach(ch=>{const r=ch.val();if(!r||!r.id)return;if(!l[r.id]||r.ts>l[r.id].ts)l[r.id]=r;});REPORTS=l;refresh();});};
