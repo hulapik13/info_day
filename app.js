@@ -102,14 +102,20 @@ async function loadLive(){
     refresh();
   }catch(e){$('warn').style.display='block';$('warn').textContent='Не удалось загрузить наличие: '+e.message;}
 }
+function saveState(){try{localStorage.setItem('br_filters',JSON.stringify({st:[...state.st],fuel:[...state.fuel],q:state.q}));}catch(e){}}
+function restoreState(){try{const d=JSON.parse(localStorage.getItem('br_filters')||'{}');
+  (d.st||[]).forEach(v=>{state.st.add(v);const c=document.querySelector('#sts .chip[data-s="'+v+'"]');if(c)c.classList.add('on');});
+  (d.fuel||[]).forEach(v=>{state.fuel.add(v);const c=document.querySelector('#fuels .chip[data-f="'+v+'"]');if(c)c.classList.add('on');});
+  if(d.q){state.q=d.q;$('q').value=d.q;}}catch(e){}}
 $('togg').onclick=()=>$('drawer').classList.toggle('open');
-$('q').oninput=e=>{state.q=e.target.value;refresh();};
-$('sts').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.st.has(c.dataset.s)?state.st.delete(c.dataset.s):state.st.add(c.dataset.s);refresh();};
-$('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.fuel.has(c.dataset.f)?state.fuel.delete(c.dataset.f):state.fuel.add(c.dataset.f);refresh();};
-$('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));refresh();};
+$('q').oninput=e=>{state.q=e.target.value;saveState();refresh();};
+$('sts').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.st.has(c.dataset.s)?state.st.delete(c.dataset.s):state.st.add(c.dataset.s);saveState();refresh();};
+$('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.fuel.has(c.dataset.f)?state.fuel.delete(c.dataset.f):state.fuel.add(c.dataset.f);saveState();refresh();};
+$('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();};
 $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
+restoreState();
 loadLive();
 setInterval(loadLive,180000);
 setTimeout(()=>map.invalidateSize(),200);
