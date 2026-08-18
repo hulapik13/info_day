@@ -119,7 +119,7 @@ window.initRealtime=function(){window.__db.ref('reports').limitToLast(4000).on('
 // ---- загрузка живого снимка наличия ----
 async function loadLive(){
   try{
-    const RAW='https://raw.githubusercontent.com/hulapik13/info_day/master/live.json';let r;try{r=await fetch(RAW+'?t='+Date.now());if(!r.ok)throw 0;}catch(_){r=await fetch('live.json?t='+Date.now());}const d=await r.json();
+    let r;try{r=await fetch('live.json?t='+Date.now());if(!r.ok)throw 0;}catch(_){r=await fetch('https://raw.githubusercontent.com/hulapik13/info_day/master/live.json?t='+Date.now());}const d=await r.json();
     ST=d.stations||[];IDX={};ST.forEach(s=>IDX[s.id]=s);fetchedAt=Date.parse(d.fetched_at)||Date.now();
     const mins=Math.round((Date.now()-fetchedAt)/60000);
     $('src').textContent=`наличие © ГдеБенз · обновлено ${mins<=1?'только что':mins+' мин назад'} · парсинг ~5 мин`;
