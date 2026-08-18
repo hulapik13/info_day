@@ -1,10 +1,10 @@
 <!doctype html><html lang="ru"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Бензин-радар — Москва (живая карта)</title>
+<title>Бензин-радар — Москва (живая карта наличия)</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛽</text></svg>">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
-:root{--bg:#12141a;--panel:#1b1f28;--line:#2c323f;--tx:#e7eaf0;--mut:#9aa4b2;--acc:#ffb020;--g:#28c76f;--r:#ff5a5a;--y:#ffc63d;--blue:#2b9bf4}
+:root{--bg:#12141a;--panel:#1b1f28;--line:#2c323f;--tx:#e7eaf0;--mut:#9aa4b2;--acc:#ffb020;--g:#28c76f;--r:#ff5a5a;--y:#ffc63d;--o:#ff8a3d;--blue:#2b9bf4}
 *{box-sizing:border-box}html,body{margin:0;height:100%;font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
 #app{display:flex;height:100%}
 #side{width:300px;flex:0 0 300px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
@@ -19,62 +19,61 @@ input,button{font:inherit}
 input[type=search],input[type=text]{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx)}
 button{cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx);padding:8px 10px}
 .primary{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
-.row{display:flex;gap:6px;flex-wrap:wrap}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
+.row{display:flex;gap:6px;flex-wrap:wrap}.chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#0f1218;color:var(--mut);font-size:12px;cursor:pointer;user-select:none}
 .chip.on{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
 .sect{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:6px}
+.leg{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--mut)}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
 #warn{background:rgba(255,176,32,.12);border-bottom:1px solid var(--acc);color:var(--acc);font-size:12px;padding:8px 14px;display:none}
 .leaflet-popup-content-wrapper{background:#1b1f28;color:var(--tx);border-radius:10px}
-.leaflet-popup-tip{background:#1b1f28}.leaflet-popup-content{margin:12px 13px;font-size:13px;min-width:210px}
+.leaflet-popup-tip{background:#1b1f28}.leaflet-popup-content{margin:12px 13px;font-size:13px;min-width:220px}
 .leaflet-popup-content a{color:var(--acc)}
 .badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;background:#2a3140;margin:2px 3px 0 0}
-.badge.g{color:var(--g)}.badge.r{color:var(--r)}.badge.y{color:var(--y)}
+.badge.g{color:var(--g)}.badge.r{color:var(--r)}.badge.y{color:var(--y)}.badge.o{color:var(--o)}
+.price{font-size:12px;color:var(--tx)}.price td{padding:1px 8px 1px 0}
 .frm{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
-.fuelrow{display:flex;align-items:center;gap:6px;margin:4px 0}
-.fuelrow .fn{width:34px;font-weight:600}
+.fuelrow{display:flex;align-items:center;gap:6px;margin:4px 0}.fuelrow .fn{width:34px;font-weight:600}
 .mini{padding:3px 8px;font-size:12px;border-radius:6px;border:1px solid var(--line);background:#0f1218;color:var(--tx);cursor:pointer}
 .mini.yes{background:rgba(40,199,111,.18);border-color:var(--g);color:var(--g)}
 .mini.no{background:rgba(255,90,90,.16);border-color:var(--r);color:var(--r)}
 .mini.sel{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
 #stat{padding:8px 14px;color:var(--mut);font-size:12px}
-@media(max-width:760px){#app{flex-direction:column}#side{width:100%;flex:0 0 auto;max-height:42%}#map{flex:1}}
+@media(max-width:760px){#app{flex-direction:column}#side{width:100%;flex:0 0 auto;max-height:44%}#map{flex:1}}
 </style></head><body>
-<div id="warn">⚠️ База отметок не подключена (config.js пуст) — карта работает, но живых отметок нет. См. README.</div>
+<div id="warn"></div>
 <div id="app">
   <div id="side">
     <div class="pad"><h1>⛽ Бензин-радар</h1>
-      <div class="sub">Москва и область · <span class="live"><span class="pulse"></span><span id="livecnt">—</span></span></div></div>
-    <div class="pad"><input type="search" id="q" placeholder="Поиск: название, бренд…">
+      <div class="sub" id="src">наличие обновляется автоматически…</div>
+      <div class="sub"><span class="live"><span class="pulse"></span><span id="livecnt">—</span></span></div></div>
+    <div class="pad"><input type="search" id="q" placeholder="Поиск: название, бренд, адрес…">
       <div class="row" style="margin-top:8px"><button id="near">📍 Рядом</button><button id="reset">Сброс</button>
-      <button id="yandex">🗺️ Яндекс-очереди</button></div></div>
-    <div class="pad"><div class="sect">Топливо</div><div class="chips" id="fuels">
+      <button id="yandex">🗺️ Яндекс</button></div></div>
+    <div class="pad"><div class="sect">Статус наличия</div><div class="chips" id="sts">
+      <span class="chip" data-s="yes">🟢 есть</span><span class="chip" data-s="queue">🟡 очередь</span>
+      <span class="chip" data-s="low">🟠 мало</span><span class="chip" data-s="no">🔴 нет</span></div></div>
+    <div class="pad"><div class="sect">Топливо (есть сейчас)</div><div class="chips" id="fuels">
       <span class="chip" data-f="95">95</span><span class="chip" data-f="92">92</span>
-      <span class="chip" data-f="98">98</span><span class="chip" data-f="ДТ">ДТ</span>
-      <span class="chip" data-f="газ">газ</span></div></div>
-    <div class="pad"><div class="sect">Показывать</div><div class="chips" id="show">
-      <span class="chip" data-k="rep">только с отметками</span>
-      <span class="chip" data-k="has">где ЕСТЬ</span>
-      <span class="chip" data-k="fresh">свежее 1 ч</span></div></div>
+      <span class="chip" data-f="98">98</span><span class="chip" data-f="ДТ">ДТ</span></div></div>
+    <div class="pad"><div class="sect">Легенда</div><div class="leg">
+      <span><i style="background:#28c76f"></i>есть</span><span><i style="background:#ffc63d"></i>очередь</span>
+      <span><i style="background:#ff8a3d"></i>мало</span><span><i style="background:#ff5a5a"></i>нет</span>
+      <span><i style="background:#6b7686"></i>нет данных</span></div>
+      <div class="sub" style="margin-top:6px">🔵 обвод — свежая отметка друзей</div></div>
     <div id="stat"></div>
   </div>
   <div id="map"></div>
 </div>
 <script src="vendor/leaflet.js"></script>
 <script src="config.js"></script>
-<script src="data.js"></script>
-<!-- Firebase compat SDK (грузится только если конфиг заполнен) -->
 <script>
 window.__fbReady=false;
-(function(){
-  var c=window.FIREBASE_CONFIG||{};
-  if(!c.databaseURL){document.getElementById('warn').style.display='block';return;}
+(function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
   var s1=document.createElement('script');s1.src='https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
   s1.onload=function(){var s2=document.createElement('script');s2.src='https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js';
-    s2.onload=function(){try{firebase.initializeApp(c);window.__db=firebase.database();window.__fbReady=true;initRealtime();}catch(e){console.error(e);document.getElementById('warn').textContent='⚠️ Ошибка Firebase: '+e.message;document.getElementById('warn').style.display='block';}};
-    document.head.appendChild(s2);};
-  document.head.appendChild(s1);
-})();
+    s2.onload=function(){try{firebase.initializeApp(c);window.__db=firebase.database();window.__fbReady=true;if(window.initRealtime)initRealtime();}catch(e){console.error(e);}};document.head.appendChild(s2);};
+  document.head.appendChild(s1);})();
 </script>
 <script src="app.js"></script>
 </body></html>
