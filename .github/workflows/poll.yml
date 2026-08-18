@@ -23,7 +23,8 @@ jobs:
           d=json.load(open('/tmp/raw.json'))
           keep=[{'id':x['osm_id'],'n':x.get('name') or 'АЗС','b':x.get('brand') or '',
                  'la':round(x['lat'],6),'lo':round(x['lon'],6),'ad':x.get('addr') or '',
-                 's':x.get('status'),'fn':x.get('fuels_now') or '','pr':x.get('prices_now') or {}} for x in d]
+                 's':x.get('status'),'fn':x.get('fuels_now') or '',
+                 'pr':{f:{'p':v.get('p'),'t':v.get('t'),'n':v.get('n')} for f,v in (x.get('prices_now') or {}).items()}} for x in d]
           out={'fetched_at':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                'source':'gdebenz.ru','stations':keep}
           json.dump(out,open('live.json','w'),ensure_ascii=False,separators=(',',':'))

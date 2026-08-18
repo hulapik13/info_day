@@ -1,67 +1,89 @@
 <!doctype html><html lang="ru"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Бензин-радар — Москва (живая карта наличия)</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Бензин-радар — Москва</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛽</text></svg>">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
 :root{--bg:#12141a;--panel:#1b1f28;--line:#2c323f;--tx:#e7eaf0;--mut:#9aa4b2;--acc:#ffb020;--g:#28c76f;--r:#ff5a5a;--y:#ffc63d;--o:#ff8a3d;--blue:#2b9bf4}
-*{box-sizing:border-box}html,body{margin:0;height:100%;font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
-#app{display:flex;height:100%}
-#side{width:300px;flex:0 0 300px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
-#map{flex:1;background:#0e1015}
-.pad{padding:12px 14px;border-bottom:1px solid var(--line)}
-h1{font-size:16px;margin:0 0 2px;display:flex;align-items:center;gap:6px}
-.sub{color:var(--mut);font-size:12px}
-.live{display:inline-flex;align-items:center;gap:5px;color:var(--g);font-size:12px}
-.pulse{width:8px;height:8px;border-radius:50%;background:var(--g);animation:p 1.8s infinite}
-@keyframes p{0%{box-shadow:0 0 0 0 rgba(40,199,111,.5)}70%{box-shadow:0 0 0 8px rgba(40,199,111,0)}100%{box-shadow:0 0 0 0 rgba(40,199,111,0)}}
-input,button{font:inherit}
-input[type=search],input[type=text]{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx)}
-button{cursor:pointer;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx);padding:8px 10px}
-.primary{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
-.row{display:flex;gap:6px;flex-wrap:wrap}.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{padding:5px 10px;border-radius:16px;border:1px solid var(--line);background:#0f1218;color:var(--mut);font-size:12px;cursor:pointer;user-select:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;font:15px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx);overscroll-behavior:none}
+#wrap{display:flex;flex-direction:column;height:100dvh}
+#top{flex:0 0 auto;background:var(--panel);border-bottom:1px solid var(--line);padding:8px 10px;z-index:1000}
+.trow{display:flex;align-items:center;gap:8px}
+.brand{font-size:16px;font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.upd{color:var(--mut);font-size:11px;line-height:1.15;flex:1;min-width:0}
+.upd b{color:var(--g);font-weight:500}
+#togg{flex:0 0 auto;background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:9px;padding:8px 12px;font-size:14px;cursor:pointer}
+#drawer{display:none;margin-top:8px}
+#drawer.open{display:block}
+input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:16px;margin-bottom:8px}
+.sect{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:8px 0 5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:8px 13px;border-radius:18px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer;user-select:none}
 .chip.on{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
-.sect{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin-bottom:6px}
-.leg{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--mut)}
-.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
-#warn{background:rgba(255,176,32,.12);border-bottom:1px solid var(--acc);color:var(--acc);font-size:12px;padding:8px 14px;display:none}
-.leaflet-popup-content-wrapper{background:#1b1f28;color:var(--tx);border-radius:10px}
-.leaflet-popup-tip{background:#1b1f28}.leaflet-popup-content{margin:12px 13px;font-size:13px;min-width:220px}
-.leaflet-popup-content a{color:var(--acc)}
-.badge{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;background:#2a3140;margin:2px 3px 0 0}
-.badge.g{color:var(--g)}.badge.r{color:var(--r)}.badge.y{color:var(--y)}.badge.o{color:var(--o)}
-.price{font-size:12px;color:var(--tx)}.price td{padding:1px 8px 1px 0}
-.frm{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
-.fuelrow{display:flex;align-items:center;gap:6px;margin:4px 0}.fuelrow .fn{width:34px;font-weight:600}
-.mini{padding:3px 8px;font-size:12px;border-radius:6px;border:1px solid var(--line);background:#0f1218;color:var(--tx);cursor:pointer}
+.acts{display:flex;gap:7px;margin-top:10px}
+.acts button{flex:1;padding:11px 8px;border-radius:10px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer}
+.leg{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--mut);margin-top:10px}
+.leg i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;vertical-align:middle}
+#map{flex:1 1 auto;background:#0e1015}
+#warn{background:rgba(255,90,90,.14);color:var(--r);font-size:12px;padding:6px 10px;display:none}
+/* popup */
+.leaflet-popup-content-wrapper{background:#1b1f28;color:var(--tx);border-radius:12px}
+.leaflet-popup-tip{background:#1b1f28}
+.leaflet-popup-content{margin:13px 14px;font-size:14px;min-width:230px;max-width:78vw}
+.leaflet-popup-content a{color:var(--acc);text-decoration:none}
+.pf{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.fb{font-size:14px;font-weight:700;padding:5px 10px;border-radius:8px;border:1px solid var(--line)}
+.fb.g{color:var(--g);background:rgba(40,199,111,.15);border-color:rgba(40,199,111,.5)}
+.fb.r{color:var(--r);background:rgba(255,90,90,.13);border-color:rgba(255,90,90,.5)}
+.hdr{font-size:16px;font-weight:600}
+.st{display:inline-block;font-size:12px;padding:3px 9px;border-radius:7px;margin:4px 0}
+.price{font-size:12px;color:var(--mut)}.price td{padding:1px 10px 1px 0}
+.dl{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dl a{border:1px solid var(--line);background:#0f1218;border-radius:9px;padding:8px 10px;font-size:13px}
+.frm{margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
+.fuelrow{display:flex;align-items:center;gap:6px;margin:5px 0}.fuelrow .fn{width:38px;font-weight:600}
+.mini{padding:6px 12px;font-size:14px;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx);cursor:pointer}
 .mini.yes{background:rgba(40,199,111,.18);border-color:var(--g);color:var(--g)}
 .mini.no{background:rgba(255,90,90,.16);border-color:var(--r);color:var(--r)}
 .mini.sel{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
-#stat{padding:8px 14px;color:var(--mut);font-size:12px}
-@media(max-width:760px){#app{flex-direction:column}#side{width:100%;flex:0 0 auto;max-height:44%}#map{flex:1}}
+.frm input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:15px;margin:5px 0}
+.frm .primary{background:var(--acc);color:#231800;border:none;font-weight:600;padding:11px;border-radius:9px;width:100%;font-size:15px;cursor:pointer;margin-top:4px}
+/* десктоп: панель слева */
+@media(min-width:820px){
+  #wrap{flex-direction:row}
+  #top{flex:0 0 330px;width:330px;border-bottom:none;border-right:1px solid var(--line);overflow-y:auto}
+  #togg{display:none}
+  #drawer{display:block!important;margin-top:12px}
+  .brand{font-size:18px}
+}
 </style></head><body>
-<div id="warn"></div>
-<div id="app">
-  <div id="side">
-    <div class="pad"><h1>⛽ Бензин-радар</h1>
-      <div class="sub" id="src">наличие обновляется автоматически…</div>
-      <div class="sub"><span class="live"><span class="pulse"></span><span id="livecnt">—</span></span></div></div>
-    <div class="pad"><input type="search" id="q" placeholder="Поиск: название, бренд, адрес…">
-      <div class="row" style="margin-top:8px"><button id="near">📍 Рядом</button><button id="reset">Сброс</button>
-      <button id="yandex">🗺️ Яндекс</button></div></div>
-    <div class="pad"><div class="sect">Статус наличия</div><div class="chips" id="sts">
-      <span class="chip" data-s="yes">🟢 есть</span><span class="chip" data-s="queue">🟡 очередь</span>
-      <span class="chip" data-s="low">🟠 мало</span><span class="chip" data-s="no">🔴 нет</span></div></div>
-    <div class="pad"><div class="sect">Топливо (есть сейчас)</div><div class="chips" id="fuels">
-      <span class="chip" data-f="95">95</span><span class="chip" data-f="92">92</span>
-      <span class="chip" data-f="98">98</span><span class="chip" data-f="ДТ">ДТ</span></div></div>
-    <div class="pad"><div class="sect">Легенда</div><div class="leg">
-      <span><i style="background:#28c76f"></i>есть</span><span><i style="background:#ffc63d"></i>очередь</span>
-      <span><i style="background:#ff8a3d"></i>мало</span><span><i style="background:#ff5a5a"></i>нет</span>
-      <span><i style="background:#6b7686"></i>нет данных</span></div>
-      <div class="sub" style="margin-top:6px">🔵 обвод — свежая отметка друзей</div></div>
-    <div id="stat"></div>
+<div id="wrap">
+  <div id="top">
+    <div class="trow">
+      <span class="brand">⛽ Бензин-радар</span>
+      <span class="upd" id="src">загрузка…</span>
+      <button id="togg">Фильтры</button>
+    </div>
+    <div id="warn"></div>
+    <div id="drawer">
+      <input type="search" id="q" placeholder="Поиск: название, бренд, адрес…">
+      <div class="sect">Статус наличия</div>
+      <div class="chips" id="sts">
+        <span class="chip" data-s="yes">🟢 есть</span><span class="chip" data-s="queue">🟡 очередь</span>
+        <span class="chip" data-s="low">🟠 мало</span><span class="chip" data-s="no">🔴 нет</span></div>
+      <div class="sect">Есть сейчас — топливо</div>
+      <div class="chips" id="fuels">
+        <span class="chip" data-f="92">92</span><span class="chip" data-f="95">95</span>
+        <span class="chip" data-f="98">98</span><span class="chip" data-f="100">100</span>
+        <span class="chip" data-f="ДТ">ДТ</span></div>
+      <div class="acts"><button id="near">📍 Рядом</button><button id="reset">Сброс</button><button id="yandex">🗺️ Яндекс</button></div>
+      <div class="leg">
+        <span><i style="background:#28c76f"></i>есть</span><span><i style="background:#ffc63d"></i>очередь</span>
+        <span><i style="background:#ff8a3d"></i>мало</span><span><i style="background:#ff5a5a"></i>нет</span>
+        <span><i style="background:#6b7686"></i>нет данных</span><span>🔵 отметка друзей</span></div>
+      <div id="stat" style="color:var(--mut);font-size:12px;margin-top:8px"></div>
+    </div>
   </div>
   <div id="map"></div>
 </div>
