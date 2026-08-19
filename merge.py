@@ -60,10 +60,11 @@ for s in g0:
         bm=BST.get(b.get('status'))
         if bm: cand.append((bm, int((b.get('lastReportAt') or 0)/1000), 'benzrf'))
     cand=[c for c in cand if c[1]>0]
-    st=s.get('status'); sts=None; stssrc=None
+    st=s.get('status'); sts=None; stssrc=('gdebenz' if st else None)
     if cand:
-        best=max(cand,key=lambda c:c[1]); sts=best[1]; stssrc=best[2]
-        if (not st) or (NOW-best[1] < 12*3600): st=best[0]
+        best=max(cand,key=lambda c:c[1])
+        if (not st) or (NOW-best[1] < 12*3600):
+            st=best[0]; sts=best[1]; stssrc=best[2]
     # очередь в машинах
     q=None;qsrc=None
     if m1 and m1.get('queueTxt'):q=m1['queueTxt'];qsrc='gdebenzi'

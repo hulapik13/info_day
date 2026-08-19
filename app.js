@@ -89,17 +89,17 @@ function openSheet(id){
     <input type="text" id="pnote" placeholder="коммент (лимит, цена)" maxlength="80">
     <input type="text" id="pwho" placeholder="имя" maxlength="20" value="${esc(localStorage.getItem('br_name')||'')}">
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
-  const html=`<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div></div><button class="starbtn" id="starBtn">${isFav(id)?'★':'☆'}</button></div>
+  const html=`<div style="display:flex;align-items:flex-start;gap:8px;padding-right:40px"><div style="flex:1"><div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div></div><button class="starbtn" id="starBtn">${isFav(id)?'★':'☆'}</button></div>
     <div style="font-size:11px;color:var(--mut);margin-top:8px">🚦 пробки на заезде (Яндекс, вживую):</div>
     <div id="yamap" style="margin:5px 0;height:240px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#0f1218;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px">загрузка карты Яндекса…</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
     ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 движение на заезд: <span style="opacity:.7">проверяю…</span></div>`:''}
-    ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
+    ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · источник: <b>'+esc(s.stssrc)+'</b>':''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}${s.conf!=null?`<div style="font-size:11px;color:var(--mut)">🔎 надёжность ~${s.conf}%${s.nrep?' · по '+s.nrep+' отметкам':''}</div>`:''}
     <div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
-    <div style="font-size:10.5px;color:var(--mut);margin-top:6px">источники: ${(s.src||['gdebenz']).join(', ')}</div>\n    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
+    <div style="font-size:10.5px;color:var(--mut);margin-top:6px">проверено по: ${(s.src||['gdebenz']).join(', ')}</div>\n    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
     ${fbOn?`<button id="revealForm" style="width:100%;margin-top:10px;padding:12px;border-radius:10px;border:1px solid var(--acc);background:transparent;color:var(--acc);font-weight:600;font-size:15px;cursor:pointer">➕ Отметить наличие</button><div id="formWrap" style="display:none">${form}</div>`:''}`;
   const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
