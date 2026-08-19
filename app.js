@@ -12,6 +12,11 @@ const FORDER=['92','95','98','100','ДТ'];
 let ST=[],IDX={},REPORTS={},MY=null,fetchedAt=0;
 const markers={};
 const state={st:new Set(),fuel:new Set(),q:''};
+const FAV=new Set(JSON.parse(localStorage.getItem('br_fav')||'[]'));
+function saveFav(){try{localStorage.setItem('br_fav',JSON.stringify([...FAV]));}catch(e){}}
+function isFav(id){return FAV.has(id);}
+window.toggleFav=function(id){if(FAV.has(id))FAV.delete(id);else FAV.add(id);saveFav();const b=document.getElementById('starBtn');if(b)b.textContent=isFav(id)?'★':'☆';refresh();};
+function toast(msg,ms){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.classList.add('on');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),ms||3500);}
 const SCOL={yes:'#28c76f',queue:'#ffc63d',low:'#ff8a3d',no:'#ff5a5a'};
 const SLAB={yes:'🟢 есть топливо',queue:'🟡 очередь',low:'🟠 мало',no:'🔴 нет топлива'};
 const SBG={yes:'rgba(40,199,111,.15)',queue:'rgba(255,198,61,.15)',low:'rgba(255,138,61,.15)',no:'rgba(255,90,90,.14)'};
@@ -47,7 +52,8 @@ function refresh(){
     const hasFriend=REPORTS[s.id]&&Date.now()-REPORTS[s.id].ts<3600e3;if(hasFriend)fresh++;
     const rad=s.s&&s.s!=='no'?6:(s.s?5:4);
     const stale=s.sts&&(Date.now()-s.sts*1000>6*3600e3);
-    const style={radius:rad,fillColor:eff.col,weight:hasFriend?2.5:1,color:hasFriend?'#2b9bf4':'#0b0d12',fillOpacity:s.s?(stale?.45:.9):.4};
+    const fav=isFav(s.id);
+    const style={radius:fav?rad+1.5:rad,fillColor:eff.col,weight:(hasFriend||fav)?2.6:1,color:hasFriend?'#2b9bf4':(fav?'#ffb020':'#0b0d12'),fillOpacity:s.s?(stale?.45:.9):.4};
     if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openSheet(s.id)).addTo(map);}
     else markers[s.id].setStyle(style);
   }
@@ -78,13 +84,14 @@ function openSheet(id){
     <input type="text" id="pnote" placeholder="коммент (лимит, цена)" maxlength="80">
     <input type="text" id="pwho" placeholder="имя" maxlength="20" value="${esc(localStorage.getItem('br_name')||'')}">
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
-  const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
+  const html=`<div style="display:flex;align-items:flex-start;gap:8px"><div style="flex:1"><div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div></div><button class="starbtn" id="starBtn">${isFav(id)?'★':'☆'}</button></div>
     <div style="font-size:11px;color:var(--mut);margin-top:8px">🚦 пробки на заезде (Яндекс, вживую):</div>
     <div id="yamap" style="margin:5px 0;height:240px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#0f1218;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px">загрузка карты Яндекса…</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
     ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 движение на заезд: <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
-    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
+    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}${s.conf!=null?`<div style="font-size:11px;color:var(--mut)">🔎 надёжность ~${s.conf}%${s.nrep?' · по '+s.nrep+' отметкам':''}</div>`:''}
+    <div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
     <div style="font-size:10.5px;color:var(--mut);margin-top:6px">источники: ${(s.src||['gdebenz']).join(', ')}</div>\n    <div class="dl"><a href="https://gdebenz.ru/" target="_blank">ГдеБенз</a><a href="https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf" target="_blank">🚗 пробки</a><a href="https://yandex.ru/maps/?rtext=~${s.la},${s.lo}&rtt=auto" target="_blank">🧭 маршрут</a><a href="#" onclick="shareAZS('${id}');return false">📤</a></div>
@@ -97,6 +104,7 @@ function openSheet(id){
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
+    const sb=document.getElementById('starBtn');if(sb)sb.onclick=()=>toggleFav(id);
     const rv=$('revealForm');if(rv)rv.onclick=()=>{$('formWrap').style.display='block';rv.style.display='none';$('formWrap').scrollIntoView({behavior:'smooth',block:'nearest'});};
     const sv=$('psave');if(sv)sv.onclick=()=>{const yes=Object.keys(curPick).filter(f=>curPick[f]==='yes'),no=Object.keys(curPick).filter(f=>curPick[f]==='no');
       if(!yes.length&&!no.length&&curQ==null){alert('Отметь топливо или очередь');return;}
@@ -118,7 +126,7 @@ async function loadLive(){
     const mins=Math.round((Date.now()-fetchedAt)/60000);
     $('src').innerHTML=`наличие © <b>ГдеБенз</b> · обновлено ${mins<=1?'только что':mins+' мин назад'}`;
     for(const id in markers)if(!IDX[id]){map.removeLayer(markers[id]);delete markers[id];}
-    refresh();
+    refresh();checkNotify();
   }catch(e){$('warn').style.display='block';$('warn').textContent='Не удалось загрузить наличие: '+e.message;}
 }
 function saveState(){try{localStorage.setItem('br_filters',JSON.stringify({st:[...state.st],fuel:[...state.fuel],q:state.q}));}catch(e){}}
@@ -134,7 +142,92 @@ $('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').va
 $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
+// ---- расстояние до меня ----
+const KREM=[55.75216,37.61754];
+function myDist(s){const o=MY||KREM;return distM(s.la,s.lo,o[0],o[1])/1000;}
+// ---- список заправок ----
+function openList(){
+  let rows=ST.filter(visible);
+  const stord={yes:0,queue:1,low:1,no:2};
+  rows.forEach(s=>s._d=myDist(s));
+  rows.sort((a,b)=>{
+    const fa=isFav(a.id),fb=isFav(b.id);if(fa!==fb)return fb-fa;
+    const ea=stord[a.s]==null?3:stord[a.s], eb=stord[b.s]==null?3:stord[b.s];
+    if(ea!==eb)return ea-eb;
+    if(MY)return a._d-b._d;
+    return (b.sts||0)-(a.sts||0);
+  });
+  const body=$('listBody');
+  body.innerHTML=rows.slice(0,250).map(s=>{
+    const col=SCOL[s.s]||'#6b7686';
+    const dist=s._d.toFixed(1)+' км '+(MY?'от вас':'от центра');
+    const sub=(s.fn?'есть: '+esc(s.fn):(s.s?SLAB[s.s]:'нет данных'))+(s.q?' · 🚗 '+esc(s.q):'')+(s.sts?' · '+ago(s.sts*1000):'');
+    return '<div class="li" data-id="'+s.id+'"><span class="dot" style="background:'+col+'"></span><div class="txt"><b>'+esc(s.n)+'</b> <span class="m">'+(s.b?esc(s.b)+' · ':'')+dist+'</span><div class="m">'+sub+'</div></div><span class="fav">'+(isFav(s.id)?'★':'')+'</span></div>';
+  }).join('')||'<div style="padding:30px;text-align:center;color:var(--mut)">Ничего не найдено по фильтрам</div>';
+  $('listPanel').classList.add('on');
+}
+$('listBody').onclick=e=>{const li=e.target.closest('.li');if(!li)return;$('listPanel').classList.remove('on');openSheet(li.dataset.id);};
+$('list').onclick=openList;
+// ---- уведомления ----
+let prevStatus=null;
+function checkNotify(){
+  if(localStorage.getItem('br_notify')!=='1'){prevStatus=null;return;}
+  const wanted=[...state.fuel];
+  if(prevStatus){
+    for(const s of ST){
+      const now=s.s, prev=prevStatus[s.id];
+      if(prev&&prev!=='yes'&&now==='yes'){
+        const watched=isFav(s.id)||(MY&&distM(s.la,s.lo,MY[0],MY[1])<3000);
+        const okFuel=!wanted.length||wanted.some(f=>(s.fn||'').split(',').includes(f));
+        if(watched&&okFuel)fireNotify(s);
+      }
+    }
+  }
+  prevStatus={};ST.forEach(s=>prevStatus[s.id]=s.s);
+}
+function fireNotify(s){
+  const msg='⛽ Появился бензин: '+s.n+(s.fn?' ('+s.fn+')':'')+(MY?' · '+myDist(s).toFixed(1)+' км':'');
+  toast(msg,7000);
+  try{if(window.Notification&&Notification.permission==='granted')new Notification('Бензин-радар',{body:msg,icon:'icon-192.png',tag:s.id});}catch(e){}
+}
+$('notify').onclick=async()=>{
+  const on=localStorage.getItem('br_notify')==='1';
+  if(!on){
+    try{if(window.Notification&&Notification.permission!=='granted')await Notification.requestPermission();}catch(e){}
+    localStorage.setItem('br_notify','1');$('notify').textContent='🔔 Слежу ✓';
+    toast('Слежу за избранными ★ и заправками рядом — сообщу, когда появится бензин (пока вкладка открыта)',6000);
+  }else{localStorage.setItem('br_notify','0');$('notify').textContent='🔔 Уведомления';}
+};
+if(localStorage.getItem('br_notify')==='1')$('notify').textContent='🔔 Слежу ✓';
+// ---- поделиться видом ----
+$('share').onclick=()=>{
+  const p=new URLSearchParams();
+  if(state.fuel.size)p.set('f',[...state.fuel].join(','));
+  if(state.st.size)p.set('st',[...state.st].join(','));
+  if(state.q)p.set('q',state.q);
+  const c=map.getCenter();p.set('ll',c.lat.toFixed(5)+','+c.lng.toFixed(5)+','+map.getZoom());
+  const url=location.origin+location.pathname+'#'+p.toString();
+  if(navigator.share){navigator.share({title:'Бензин-радар',url});return;}
+  if(navigator.clipboard)navigator.clipboard.writeText(url).then(()=>toast('Ссылка на этот вид скопирована')).catch(()=>{});
+  window.open('https://t.me/share/url?url='+encodeURIComponent(url),'_blank');
+};
+// ---- применить состояние из ссылки ----
+function applyHash(){
+  try{
+    if(!location.hash)return;
+    const h=new URLSearchParams(location.hash.slice(1));
+    (h.get('f')||'').split(',').forEach(v=>{if(v){state.fuel.add(v);const c=document.querySelector('#fuels .chip[data-f="'+v+'"]');if(c)c.classList.add('on');}});
+    (h.get('st')||'').split(',').forEach(v=>{if(v){state.st.add(v);const c=document.querySelector('#sts .chip[data-s="'+v+'"]');if(c)c.classList.add('on');}});
+    if(h.get('q')){state.q=h.get('q');$('q').value=state.q;}
+    if(h.get('ll')){const a=h.get('ll').split(',').map(Number);if(a[0])map.setView([a[0],a[1]],a[2]||15);}
+    const sid=h.get('s');
+    if(sid){let n=0;const t=setInterval(()=>{if(IDX[sid]){clearInterval(t);openSheet(sid);}else if(++n>40)clearInterval(t);},300);}
+  }catch(e){}
+}
+
+
 restoreState();
+applyHash();
 
 const RADIUS=150; // метры: только дорога у заезда на АЗС
 function distM(la1,lo1,la2,lo2){return Math.hypot((la1-la2)*111320,(lo1-lo2)*111320*Math.cos(la1*Math.PI/180));}

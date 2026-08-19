@@ -85,12 +85,17 @@ for s in g0:
     lim=None
     if m1 and m1.get('limits'):
         lim={nlbl(k):v for k,v in m1['limits'].items()}
+    conf=None;nrep=None
+    if m1:
+        if m1.get('confPct') is not None:conf=m1['confPct']
+        nrep=m1.get('reports') or m1.get('metki')
+    if conf is None and a and a.get('confidence_percent') is not None:conf=a['confidence_percent']
     srcs=['gdebenz']+(['gdebenzi'] if m1 else [])+(['азсрадар'] if a else [])
     out.append({'id':s['osm_id'],'n':s.get('name') or 'АЗС','b':s.get('brand') or '',
                 'la':round(la,6),'lo':round(lo,6),'ad':s.get('addr') or '',
                 's':st,'fn':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in avail]),
                 'no':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in no]),
-                'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'lim':lim,'pr':pr,'src':srcs})
+                'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'conf':conf,'nrep':nrep,'lim':lim,'pr':pr,'src':srcs})
 
 # добавим станции из gdebenzi/азсрадар, которых нет в базе, но со свежим реальным статусом
 def add_extra(lst,latk,lok,getst,getname,used,srcname):

@@ -2,6 +2,12 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Бензин-радар — Москва</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛽</text></svg>">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#12141a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Бензин-радар">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="stylesheet" href="vendor/leaflet.css">
 <style>
 :root{--bg:#12141a;--panel:#1b1f28;--line:#2c323f;--tx:#e7eaf0;--mut:#9aa4b2;--acc:#ffb020;--g:#28c76f;--r:#ff5a5a;--y:#ffc63d;--o:#ff8a3d;--blue:#2b9bf4}
@@ -66,6 +72,21 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
 #sheetc{overflow-y:auto;padding:6px 16px calc(20px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
 .sheetX{position:absolute;top:8px;right:12px;width:34px;height:34px;border-radius:50%;background:#0f1218;border:1px solid var(--line);color:var(--tx);font-size:18px;cursor:pointer;line-height:1}
 @media(min-width:820px){#sheet{left:auto;right:20px;bottom:20px;width:390px;border-radius:16px;max-height:82vh}#backdrop{background:transparent}}
+
+#listPanel{position:fixed;inset:0;background:var(--bg);z-index:1700;display:none;flex-direction:column}
+#listPanel.on{display:flex}
+#listHead{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+#listHead h2{margin:0;font-size:17px;flex:1}
+#listBody{overflow-y:auto;flex:1;padding:6px 0}
+.li{padding:11px 14px;border-bottom:1px solid #232833;cursor:pointer;display:flex;gap:10px;align-items:center}
+.li:active{background:#222835}
+.li .dot{width:12px;height:12px;border-radius:50%;flex:0 0 12px}
+.li .txt{flex:1;min-width:0}
+.li b{font-weight:600}.li .m{color:var(--mut);font-size:12px}
+.li .fav{font-size:18px;flex:0 0 auto;color:var(--acc)}
+#toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--g);color:var(--tx);padding:11px 16px;border-radius:12px;z-index:2000;opacity:0;pointer-events:none;transition:.3s;font-size:14px;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.5)}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.starbtn{background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;color:var(--acc)}
 </style></head><body>
 <div id="wrap">
   <div id="top">
@@ -87,7 +108,8 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
         <span class="chip" data-f="92">92</span><span class="chip" data-f="95">95</span>
         <span class="chip" data-f="98">98</span><span class="chip" data-f="100">100</span>
         <span class="chip" data-f="ДТ">ДТ</span></div>
-      <div class="acts"><button id="near">📍 Рядом</button><button id="traffic">🚦 Пробки</button><button id="yandex">🗺️ Яндекс</button></div>
+      <div class="acts"><button id="near">📍 Рядом</button><button id="list">📋 Список</button><button id="traffic">🚦 Пробки</button></div>
+      <div class="acts" style="margin-top:6px"><button id="notify">🔔 Уведомления</button><button id="share">🔗 Поделиться</button><button id="yandex">🗺️ Яндекс</button></div>
       <div class="acts" style="margin-top:6px"><button id="reset" style="flex:1">Сбросить фильтры</button></div>
       <div class="leg">
         <span><i style="background:#28c76f"></i>есть</span><span><i style="background:#ffc63d"></i>очередь</span>
@@ -100,7 +122,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="trafficHint" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:20px;font-size:13px;z-index:1400;box-shadow:0 4px 16px rgba(0,0,0,.4)">🚦 приблизь карту</div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=18"></script>
+<script src="config.js?v=19"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -109,7 +131,10 @@ window.__fbReady=false;
     s2.onload=function(){try{firebase.initializeApp(c);window.__db=firebase.database();window.__fbReady=true;if(window.initRealtime)initRealtime();}catch(e){console.error(e);}};document.head.appendChild(s2);};
   document.head.appendChild(s1);})();
 </script>
-<script src="app.js?v=18"></script>
+<div id="listPanel"><div id="listHead"><h2>Список заправок</h2><button onclick="document.getElementById('listPanel').classList.remove('on')" style="background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;cursor:pointer">✕</button></div><div id="listBody"></div></div>
+<div id="toast"></div>
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
+<script src="app.js?v=19"></script>
 </body></html>
