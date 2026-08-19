@@ -147,6 +147,7 @@ $('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classLis
 $('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();if(trafficMode)refreshLines();};
 $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');drawWatch();},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
+document.getElementById('help').onclick=function(){document.getElementById('helpPanel').classList.add('on');document.getElementById('drawer').classList.remove('open');};
 document.getElementById('clearcache').onclick=async()=>{
   try{if(window.AndroidBridge&&AndroidBridge.clearCache){AndroidBridge.clearCache();}}catch(e){}
   try{if('serviceWorker' in navigator){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();}}catch(e){}

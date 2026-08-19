@@ -105,6 +105,19 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
 .wopt.sel{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
 #wradius{width:100%}
 .wval{color:var(--acc);font-weight:600}
+
+#helpPanel{position:fixed;inset:0;background:var(--bg);z-index:1760;display:none;flex-direction:column}
+#helpPanel.on{display:flex}
+#helpPanel .wh{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+#helpPanel .wh h2{margin:0;font-size:17px;flex:1}
+#helpBody{overflow-y:auto;flex:1;padding:14px 16px 30px;font-size:14px;line-height:1.55}
+#helpBody h3{font-size:15px;margin:18px 0 6px;color:var(--acc)}
+#helpBody p{margin:6px 0;color:var(--tx)}
+#helpBody .mut{color:var(--mut);font-size:13px}
+#helpBody ul{margin:6px 0;padding-left:18px}
+#helpBody li{margin:4px 0}
+#helpBody .leg2 span{display:inline-block;margin:2px 8px 2px 0}
+#helpBody .leg2 i{display:inline-block;width:11px;height:11px;border-radius:50%;vertical-align:middle;margin-right:4px}
 </style></head><body>
 <div id="wrap">
   <div id="top">
@@ -117,6 +130,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
     <div id="warn"></div>
     <div id="drawer">
       <input type="search" id="q" placeholder="Поиск: название, бренд, адрес…">
+      <button id="help" style="width:100%;margin-bottom:10px;padding:10px;border-radius:10px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer">ℹ️ Как пользоваться приложением</button>
       <div class="sect">Статус наличия</div>
       <div class="chips" id="sts">
         <span class="chip" data-s="yes">🟢 есть</span><span class="chip" data-s="queue">🟡 очередь</span>
@@ -141,7 +155,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="trafficHint" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:20px;font-size:13px;z-index:1400;box-shadow:0 4px 16px rgba(0,0,0,.4)">🚦 приблизь карту</div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=32"></script>
+<script src="config.js?v=33"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -167,9 +181,55 @@ window.__fbReady=false;
   <button id="wsave" style="width:100%;padding:13px;border-radius:11px;border:none;background:var(--acc);color:#231800;font-weight:600;font-size:16px;cursor:pointer">Сохранить</button>
   <button id="wtest" style="width:100%;margin-top:10px;padding:12px;border-radius:11px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer">🧪 Тест уведомления (через 1 минуту)</button>
 </div></div>
+<div id="helpPanel"><div class="wh"><h2>ℹ️ Как пользоваться</h2><button onclick="document.getElementById('helpPanel').classList.remove('on')" style="background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;cursor:pointer">✕</button></div>
+<div id="helpBody">
+<p><b>Бензин-радар</b> — живая карта наличия бензина, очередей и пробок на АЗС Москвы и области. Данные собираются из нескольких сервисов и обновляются автоматически каждые ~5 минут (тыкать не надо).</p>
+
+<h3>🎨 Цвет точки = наличие</h3>
+<div class="leg2">
+<span><i style="background:#28c76f"></i>есть топливо</span>
+<span><i style="background:#ffc63d"></i>очередь</span>
+<span><i style="background:#ff8a3d"></i>мало</span>
+<span><i style="background:#ff5a5a"></i>нет</span>
+<span><i style="background:#6b7686"></i>нет данных</span>
+</div>
+<p class="mut">Бледная точка — данные несвежие (старше 6 ч). 🔵 обводка — свежая отметка друзей.</p>
+
+<h3>🔎 Как найти, где есть нужное</h3>
+<ul>
+<li><b>Фильтры</b> (кнопка «Фильтры»): выбери топливо (92/95/98/100/ДТ) и статус — на карте останутся только подходящие.</li>
+<li><b>📍 Рядом</b> — покажет заправки вокруг тебя.</li>
+<li><b>📋 Список</b> — заправки списком, ближайшие и «где есть» сверху.</li>
+<li><b>Поиск</b> — по названию, бренду или улице.</li>
+</ul>
+
+<h3>⛽ Карточка заправки (тап по точке)</h3>
+<ul>
+<li>Статус и <b>какое топливо есть/нет</b> сейчас (92 ✓ / 95 ✗ …).</li>
+<li><b>🚗 Очередь в машинах</b> и <b>лимиты</b> по литрам (где известно).</li>
+<li><b>Цены</b>, <b>надёжность</b> данных и <b>источник</b> последнего обновления.</li>
+<li><b>🚦 Пробки на заезде</b> — живая карта Яндекса прямо в карточке.</li>
+<li>Кнопки: маршрут, поделиться, «➕ отметить» (своя отметка для друзей).</li>
+</ul>
+
+<h3>⭐ Избранное</h3>
+<p>Звёздочка в карточке — добавить свою заправку. Избранные подсвечены на карте и всегда отслеживаются уведомлениями.</p>
+
+<h3>🔔 Уведомления «появился бензин»</h3>
+<p>Кнопка «🔔 Уведомления»: задай <b>зону</b> (рядом со мной или точка на карте) + <b>радиус</b> + <b>какое топливо</b> ждёшь. Когда в этой зоне (или на избранной ★ АЗС) появится нужный бензин — придёт <b>пуш на телефон</b>. В приложении работает даже когда оно закрыто.</p>
+<p class="mut">Уведомление приходит только в момент <b>появления</b> топлива (не спамит повторно). Кнопка «🧪 Тест» — проверить через 1 минуту.</p>
+
+<h3>🚦 Пробки у заправок</h3>
+<p>Кнопка «🚦 Пробки» + приблизь карту — у заправок появятся цветные линии дорог по загруженности (красный = стоят). А в карточке всегда есть живая карта Яндекса на заезд.</p>
+
+<h3>🔄 Если что-то подвисло</h3>
+<p>Внизу фильтров — «🔄 Очистить кэш и обновить». Настройки (фильтры, избранное, зона) сохраняются между запусками.</p>
+
+<p class="mut" style="margin-top:18px">Данные — краудсорс от водителей + сервисы мониторинга, не официальные и могут устаревать. Точнее всего — свежие точки и ваши собственные отметки. Наличие © gdebenz/gdebenzi/азсрадар/benzrf, карта © OpenStreetMap.</p>
+</div></div>
 <div id="toast"></div>
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
-<script src="app.js?v=32"></script>
+<script src="app.js?v=33"></script>
 </body></html>
