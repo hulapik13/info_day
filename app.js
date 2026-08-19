@@ -248,6 +248,13 @@ document.getElementById('wsave').onclick=async function(){
   if(WATCH.on){try{if(window.Notification&&Notification.permission!=='granted')await Notification.requestPermission();}catch(e){}
     if(WATCH.mode==='me'&&!MY&&navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){MY=[p.coords.latitude,p.coords.longitude];drawWatch();},function(){});}
   saveWatch();prevFuels=null;
+  // синхронизация с нативным фоновым сервисом (работает при закрытом приложении)
+  try{if(window.AndroidBridge&&AndroidBridge.saveWatch){
+    var ctr=watchCenter()||[0,0];
+    AndroidBridge.saveWatch(JSON.stringify({on:WATCH.on,lat:ctr[0]||0,lng:ctr[1]||0,radius:WATCH.radius,fuels:WATCH.fuels.join(','),favs:[...FAV].join(',')}));
+    if(WATCH.on&&AndroidBridge.startWatch)AndroidBridge.startWatch();
+    if(!WATCH.on&&AndroidBridge.stopWatch)AndroidBridge.stopWatch();
+  }}catch(e){}
   document.getElementById('watchPanel').classList.remove('on');
   $('notify').textContent=WATCH.on?'\U0001f514 Слежу ✓':'\U0001f514 Уведомления';
   drawWatch();

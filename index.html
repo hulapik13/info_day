@@ -141,7 +141,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="trafficHint" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:20px;font-size:13px;z-index:1400;box-shadow:0 4px 16px rgba(0,0,0,.4)">🚦 приблизь карту</div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=26"></script>
+<script src="config.js?v=27"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -154,7 +154,7 @@ window.__fbReady=false;
 <div id="watchPanel"><div class="wh"><h2>🔔 Уведомления о бензине</h2><button onclick="document.getElementById('watchPanel').classList.remove('on');drawWatch()" style="background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;cursor:pointer">✕</button></div>
 <div id="watchBody">
   <div class="wsect"><label class="wtoggle"><span id="wsw" class="sw"></span><span>Присылать уведомления</span></label>
-    <div style="font-size:12px;color:var(--mut);margin-top:6px">Когда в выбранной зоне появится заданное топливо — придёт пуш на телефон.</div></div>
+    <div style="font-size:12px;color:var(--mut);margin-top:6px">Когда в выбранной зоне появится заданное топливо — придёт пуш на телефон. В приложении работает даже когда оно закрыто (фоновое слежение).</div></div>
   <div class="wsect"><div class="lbl">Где искать</div>
     <div class="wseg"><div class="wopt" id="wmode-me">📍 Рядом со мной</div><div class="wopt" id="wmode-point">📌 Точка на карте</div></div>
     <div id="wpointrow" style="margin-top:8px;display:none"><button id="wpick" style="width:100%;padding:11px;border-radius:10px;border:1px dashed var(--acc);background:transparent;color:var(--acc);cursor:pointer">Указать точку на карте</button><div id="wcoord" style="font-size:12px;color:var(--mut);margin-top:6px"></div></div></div>
@@ -170,5 +170,5 @@ window.__fbReady=false;
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 </body></html>
