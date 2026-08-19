@@ -5,3 +5,6 @@ window.FIREBASE_CONFIG = {
   databaseURL: "https://analytics-972ad-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "analytics-972ad"
 };
+
+// TomTom Traffic (слой пробок). Ограничь ключ доменом в дашборде TomTom!
+window.TOMTOM_KEY = "21HzYa4G7LfoYcGcg6fszQ0ftcooqRta";

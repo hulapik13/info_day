@@ -87,7 +87,8 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
         <span class="chip" data-f="92">92</span><span class="chip" data-f="95">95</span>
         <span class="chip" data-f="98">98</span><span class="chip" data-f="100">100</span>
         <span class="chip" data-f="ДТ">ДТ</span></div>
-      <div class="acts"><button id="near">📍 Рядом</button><button id="reset">Сброс</button><button id="yandex">🗺️ Яндекс</button></div>
+      <div class="acts"><button id="near">📍 Рядом</button><button id="traffic">🚦 Пробки</button><button id="yandex">🗺️ Яндекс</button></div>
+      <div class="acts" style="margin-top:6px"><button id="reset" style="flex:1">Сбросить фильтры</button></div>
       <div class="leg">
         <span><i style="background:#28c76f"></i>есть</span><span><i style="background:#ffc63d"></i>очередь</span>
         <span><i style="background:#ff8a3d"></i>мало</span><span><i style="background:#ff5a5a"></i>нет</span>
@@ -98,7 +99,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="map"></div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=10"></script>
+<script src="config.js?v=11"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -107,7 +108,7 @@ window.__fbReady=false;
     s2.onload=function(){try{firebase.initializeApp(c);window.__db=firebase.database();window.__fbReady=true;if(window.initRealtime)initRealtime();}catch(e){console.error(e);}};document.head.appendChild(s2);};
   document.head.appendChild(s1);})();
 </script>
-<script src="app.js?v=10"></script>
+<script src="app.js?v=11"></script>
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 </body></html>

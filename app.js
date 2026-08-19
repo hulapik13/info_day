@@ -126,6 +126,30 @@ $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация н
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
 restoreState();
+
+// ---- слой пробок TomTom ----
+let trafficLayer=null,trafficTimer=null;
+function setTraffic(on){
+  const k=window.TOMTOM_KEY;
+  const btn=$('traffic');
+  if(on&&k){
+    if(!trafficLayer)trafficLayer=L.tileLayer('https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key='+k,{maxZoom:22,opacity:.8,zIndex:250,crossOrigin:true});
+    trafficLayer.addTo(map);
+    if(btn){btn.style.background='var(--acc)';btn.style.color='#231800';btn.style.borderColor='transparent';btn.style.fontWeight='600';}
+    if(trafficTimer)clearInterval(trafficTimer);
+    trafficTimer=setInterval(()=>{if(trafficLayer&&map.hasLayer(trafficLayer))trafficLayer.redraw();},150000);
+  }else{
+    if(trafficLayer)map.removeLayer(trafficLayer);
+    if(trafficTimer){clearInterval(trafficTimer);trafficTimer=null;}
+    if(btn){btn.style.background='';btn.style.color='';btn.style.borderColor='';btn.style.fontWeight='';}
+  }
+  try{localStorage.setItem('br_traffic',on?'1':'0');}catch(e){}
+}
+if(window.TOMTOM_KEY){
+  $('traffic').onclick=()=>setTraffic(!(trafficLayer&&map.hasLayer(trafficLayer)));
+  try{if(localStorage.getItem('br_traffic')==='1')setTraffic(true);}catch(e){}
+}else{const b=$('traffic');if(b)b.style.display='none';}
+
 loadLive();
 setInterval(loadLive,180000);
 setTimeout(()=>map.invalidateSize(),200);
