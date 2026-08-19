@@ -76,7 +76,7 @@ function openSheet(id){
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
-    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 пробки вокруг (1.5 км): <span style="opacity:.7">проверяю…</span></div>`:''}
+    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 пробки вокруг (500 м): <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
@@ -86,7 +86,7 @@ function openSheet(id){
   const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
-  if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 пробки вокруг (1.5 км): '+areaSummary(segs);});
+  if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 пробки вокруг (500 м): '+areaSummary(segs);});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
@@ -129,7 +129,10 @@ $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','
 
 restoreState();
 
-// ---- пробки вокруг АЗС в радиусе 1.5 км ----
+const RADIUS=500; // метры вокруг АЗС
+function distM(la1,lo1,la2,lo2){return Math.hypot((la1-la2)*111320,(lo1-lo2)*111320*Math.cos(la1*Math.PI/180));}
+function clipRuns(coords,la,lo,m){const runs=[];let cur=[];for(const p of coords){if(distM(p[0],p[1],la,lo)<=m)cur.push(p);else{if(cur.length>1)runs.push(cur);cur=[];}}if(cur.length>1)runs.push(cur);return runs;}
+// ---- пробки вокруг АЗС (радиус RADIUS) ----
 const FLOWP={};
 async function fetchPoint(la,lo){
   const key=la.toFixed(4)+','+lo.toFixed(4);const c=FLOWP[key];
@@ -153,8 +156,8 @@ const focusLayer=L.layerGroup();
 function clearArea(){focusLayer.clearLayers();if(map.hasLayer(focusLayer))map.removeLayer(focusLayer);}
 async function showArea(id,la,lo){
   clearArea();focusLayer.addTo(map);
-  L.circle([la,lo],{radius:1500,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false}).addTo(focusLayer);
-  const pts=[[la,lo],...ringPoints(la,lo,0.8,6),...ringPoints(la,lo,1.5,8)];
+  L.circle([la,lo],{radius:RADIUS,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false}).addTo(focusLayer);
+  const pts=[[la,lo],...ringPoints(la,lo,0.25,6),...ringPoints(la,lo,0.45,8)];
   const seen=new Set(),segs=[];
   await Promise.all(pts.map(async p=>{
     const f=await fetchPoint(p[0],p[1]);if(!f||!f.coords||f.coords.length<2)return;
@@ -162,8 +165,10 @@ async function showArea(id,la,lo){
     if(seen.has(k))return;seen.add(k);segs.push(f);
     if(curId!==id)return;
     const c=congColor(f);
-    L.polyline(f.coords,{color:'#0b0d12',weight:8,opacity:.45,interactive:false}).addTo(focusLayer);
-    L.polyline(f.coords,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false}).addTo(focusLayer);
+    clipRuns(f.coords,la,lo,RADIUS).forEach(run=>{
+      L.polyline(run,{color:'#0b0d12',weight:8,opacity:.45,interactive:false}).addTo(focusLayer);
+      L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false}).addTo(focusLayer);
+    });
   }));
   return segs;
 }
@@ -205,10 +210,9 @@ async function refreshLines(){
     await Promise.all(vis.map(async s=>{
       const f=await fetchFlow(s.id,s.la,s.lo);const c=congColor(f);if(!c||!f.coords||f.coords.length<2)return;
       if(lines[s.id])lineLayer.removeLayer(lines[s.id]);
-      const g=L.layerGroup([
-        L.polyline(f.coords,{color:'#0b0d12',weight:9,opacity:.5,lineCap:'round',lineJoin:'round',interactive:false}),
-        L.polyline(f.coords,{color:c,weight:5,opacity:.95,lineCap:'round',lineJoin:'round',interactive:false})
-      ]);
+      const runs=clipRuns(f.coords,s.la,s.lo,RADIUS);if(!runs.length)return;
+      const g=L.layerGroup();
+      runs.forEach(run=>{g.addLayer(L.polyline(run,{color:'#0b0d12',weight:9,opacity:.5,lineCap:'round',lineJoin:'round',interactive:false}));g.addLayer(L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',lineJoin:'round',interactive:false}));});
       lines[s.id]=g;lineLayer.addLayer(g);
     }));
   }finally{ringBusy=false;}
