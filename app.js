@@ -76,7 +76,7 @@ function openSheet(id){
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
-    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 подъезд: <span style="opacity:.7">проверяю…</span></div>`:''}
+    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 пробки вокруг (1.5 км): <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
@@ -86,7 +86,7 @@ function openSheet(id){
   const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
-  if(window.TOMTOM_KEY)fetchFlow(id,s.la,s.lo).then(f=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 подъезд: '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');});
+  if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 пробки вокруг (1.5 км): '+areaSummary(segs);});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
@@ -97,7 +97,7 @@ function openSheet(id){
       window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>closeSheet()).catch(e=>alert('Ошибка: '+e.message));};
   },30);
 }
-function closeSheet(){$('sheet').classList.remove('on');$('backdrop').classList.remove('on');}
+function closeSheet(){$('sheet').classList.remove('on');$('backdrop').classList.remove('on');clearArea();}
 window.closeSheet=closeSheet;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=(rr&&rr.cars!=null)?` · ~${rr.cars} машин`:(s.q?` · ${s.q}`:'');const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
@@ -128,6 +128,55 @@ $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация н
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
 restoreState();
+
+// ---- пробки вокруг АЗС в радиусе 1.5 км ----
+const FLOWP={};
+async function fetchPoint(la,lo){
+  const key=la.toFixed(4)+','+lo.toFixed(4);const c=FLOWP[key];
+  if(c&&Date.now()-c.ts<240000)return c.v;
+  if(!window.TOMTOM_KEY)return null;
+  try{
+    const r=await fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${la},${lo}&key=${window.TOMTOM_KEY}`);
+    if(!r.ok)throw 0;const d=(await r.json()).flowSegmentData;
+    const coords=((d.coordinates||{}).coordinate||[]).map(p=>[p.latitude,p.longitude]);
+    const v={cs:d.currentSpeed,ff:d.freeFlowSpeed,tt:d.currentTravelTime,ft:d.freeFlowTravelTime,closed:d.roadClosure,ratio:d.freeFlowSpeed?d.currentSpeed/d.freeFlowSpeed:1,coords};
+    FLOWP[key]={v,ts:Date.now()};return v;
+  }catch(e){return null;}
+}
+function ringPoints(la,lo,km,n){const R=6371,out=[],lar=la*Math.PI/180,lor=lo*Math.PI/180,dr=km/R;
+  for(let i=0;i<n;i++){const br=2*Math.PI*i/n;
+    const lat2=Math.asin(Math.sin(lar)*Math.cos(dr)+Math.cos(lar)*Math.sin(dr)*Math.cos(br));
+    const lon2=lor+Math.atan2(Math.sin(br)*Math.sin(dr)*Math.cos(lar),Math.cos(dr)-Math.sin(lar)*Math.sin(lat2));
+    out.push([lat2*180/Math.PI,lon2*180/Math.PI]);}
+  return out;}
+const focusLayer=L.layerGroup();
+function clearArea(){focusLayer.clearLayers();if(map.hasLayer(focusLayer))map.removeLayer(focusLayer);}
+async function showArea(id,la,lo){
+  clearArea();focusLayer.addTo(map);
+  L.circle([la,lo],{radius:1500,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false}).addTo(focusLayer);
+  const pts=[[la,lo],...ringPoints(la,lo,0.8,6),...ringPoints(la,lo,1.5,8)];
+  const seen=new Set(),segs=[];
+  await Promise.all(pts.map(async p=>{
+    const f=await fetchPoint(p[0],p[1]);if(!f||!f.coords||f.coords.length<2)return;
+    const k=f.coords[0][0].toFixed(4)+f.coords[0][1].toFixed(4)+f.coords[f.coords.length-1][0].toFixed(4);
+    if(seen.has(k))return;seen.add(k);segs.push(f);
+    if(curId!==id)return;
+    const c=congColor(f);
+    L.polyline(f.coords,{color:'#0b0d12',weight:8,opacity:.45,interactive:false}).addTo(focusLayer);
+    L.polyline(f.coords,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false}).addTo(focusLayer);
+  }));
+  return segs;
+}
+function areaSummary(segs){
+  if(!segs.length)return '<span style="opacity:.6">нет данных по дорогам вокруг</span>';
+  const jam=segs.filter(f=>f.closed||f.cs<=6||f.ratio<.3).length;
+  const dense=segs.filter(f=>f.ratio>=.3&&f.ratio<.55).length;
+  const avg=segs.reduce((a,f)=>a+Math.min(f.ratio,1),0)/segs.length;
+  const load=Math.round((1-avg)*100);
+  const col=jam>=3||load>=55?'#ff3b3b':(jam>=1||load>=35?'#ff8a3d':(load>=20?'#ffc63d':'#28c76f'));
+  const word=jam>=3||load>=55?'🔴 плотно, стоят':(jam>=1||load>=35?'🟠 местами заторы':(load>=20?'🟡 умеренно':'🟢 свободно'));
+  return `<b style="color:${col}">${word}</b> · загрузка ~${load}%`+(jam?` · заторов: ${jam}`:'')+(dense?` · плотно: ${dense}`:'');
+}
 
 // ---- пробки ТОЧЕЧНО по АЗС (TomTom flowSegmentData) ----
 const FLOW={};
