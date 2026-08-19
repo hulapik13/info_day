@@ -218,7 +218,13 @@ function checkNotify(){
 function fireNotify(s,fuels){
   const msg='Появился '+fuels.join(', ')+' — '+s.n+(MY?' · '+myDist(s).toFixed(1)+' км':'');
   toast('⛽ '+msg,7000);
-  try{if(window.Notification&&Notification.permission==='granted')new Notification('⛽ Бензин-радар',{body:msg,icon:'icon-192.png',tag:s.id+':'+fuels.join('')});}catch(e){}
+  try{
+    if(window.AndroidBridge&&AndroidBridge.notifyAt){AndroidBridge.notifyAt('⛽ Бензин-радар',msg,String(s.id),s.la,s.lo);return;}
+    if(window.Notification&&Notification.permission==='granted'){
+      const n=new Notification('⛽ Бензин-радар',{body:msg,icon:'icon-192.png',tag:s.id+':'+fuels.join('')});
+      n.onclick=function(){try{window.focus();location.hash='s='+s.id+'&ll='+s.la+','+s.lo+',16';openSheet(s.id);}catch(e){}};
+    }
+  }catch(e){}
 }
 function renderWatch(){
   document.getElementById('wsw').classList.toggle('on',WATCH.on);
