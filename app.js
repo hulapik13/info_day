@@ -152,7 +152,7 @@ document.getElementById('clearcache').onclick=async()=>{
   try{if('serviceWorker' in navigator){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();}}catch(e){}
   try{if(window.caches){const ks=await caches.keys();for(const k of ks)await caches.delete(k);}}catch(e){}
   toast('Кэш очищен, обновляю…');
-  setTimeout(()=>location.reload(),500);
+  setTimeout(()=>location.replace(location.pathname),500);
 };
 
 // ---- расстояние до меня ----
@@ -289,6 +289,7 @@ function applyHash(){
     if(h.get('ll')){const a=h.get('ll').split(',').map(Number);if(a[0])map.setView([a[0],a[1]],a[2]||15);}
     const sid=h.get('s');
     if(sid){let n=0;const t=setInterval(()=>{if(IDX[sid]){clearInterval(t);openSheet(sid);}else if(++n>40)clearInterval(t);},300);}
+    if(location.hash)history.replaceState(null,'',location.pathname);
   }catch(e){}
 }
 
