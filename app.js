@@ -1,6 +1,8 @@
 const $=id=>document.getElementById(id);
 const esc=s=>String(s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const map=L.map('map',{preferCanvas:true,tap:true}).setView([55.75,37.62],10);
+const map=L.map('map',{preferCanvas:true,tap:true});
+(function(){try{const v=JSON.parse(localStorage.getItem('br_view')||'null');if(v&&v.lat)map.setView([v.lat,v.lng],v.z);else map.setView([55.75,37.62],10);}catch(e){map.setView([55.75,37.62],10);}})();
+map.on('moveend zoomend',()=>{try{const c=map.getCenter();localStorage.setItem('br_view',JSON.stringify({lat:+c.lat.toFixed(5),lng:+c.lng.toFixed(5),z:map.getZoom()}));}catch(e){}});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM · наличие © ГдеБенз'}).addTo(map);
 const canvas=L.canvas({padding:.5});map.attributionControl.setPrefix(false);
 map.createPane('trafficPane');map.getPane('trafficPane').style.zIndex=350;map.getPane('trafficPane').style.pointerEvents='none';
