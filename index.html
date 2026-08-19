@@ -141,7 +141,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="trafficHint" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:20px;font-size:13px;z-index:1400;box-shadow:0 4px 16px rgba(0,0,0,.4)">🚦 приблизь карту</div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=28"></script>
+<script src="config.js?v=29"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -165,11 +165,11 @@ window.__fbReady=false;
     <div style="font-size:12px;color:var(--mut);margin-top:6px">Ничего не выбрано = любое топливо.</div></div>
   <div class="wsect" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;color:var(--mut)">⭐ Заправки, отмеченные звездой, отслеживаются <b>всегда</b> — независимо от радиуса.</div>
   <button id="wsave" style="width:100%;padding:13px;border-radius:11px;border:none;background:var(--acc);color:#231800;font-weight:600;font-size:16px;cursor:pointer">Сохранить</button>
-  <button id="wtest" style="width:100%;margin-top:10px;padding:12px;border-radius:11px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer">🧪 Тест уведомления (через 3 минуты)</button>
+  <button id="wtest" style="width:100%;margin-top:10px;padding:12px;border-radius:11px;border:1px solid var(--line);background:#0f1218;color:var(--tx);font-size:14px;cursor:pointer">🧪 Тест уведомления (через 1 минуту)</button>
 </div></div>
 <div id="toast"></div>
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
-<script src="app.js?v=28"></script>
+<script src="app.js?v=29"></script>
 </body></html>

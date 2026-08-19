@@ -245,8 +245,8 @@ document.getElementById('wradius').oninput=function(e){WATCH.radius=+e.target.va
 document.getElementById('wfuels').onclick=function(e){const o=e.target.closest('.wopt');if(!o)return;const f=o.dataset.f;const i=WATCH.fuels.indexOf(f);if(i>=0)WATCH.fuels.splice(i,1);else WATCH.fuels.push(f);renderWatch();};
 document.getElementById('wpick').onclick=function(){pickMode=true;document.getElementById('watchPanel').classList.remove('on');toast('Тапни точку на карте',5000);};
 document.getElementById('wtest').onclick=function(){
-  if(window.AndroidBridge&&AndroidBridge.testNotify){AndroidBridge.testNotify();toast('Тестовое уведомление придёт через 3 минуты — можешь свернуть/закрыть приложение',6000);}
-  else{toast('Тест: жди 3 минуты…',5000);setTimeout(function(){fireNotify({id:'test',n:'Лукойл (тест)',la:55.7522,lo:37.6156,fn:'95'},['95']);},180000);}
+  if(window.AndroidBridge&&AndroidBridge.testNotify){AndroidBridge.testNotify();toast('Тестовое уведомление придёт через 1 минуту — можешь свернуть/закрыть приложение',6000);}
+  else{toast('Тест: жди 1 минуту…',5000);setTimeout(function(){fireNotify({id:'test',n:'Лукойл (тест)',la:55.7522,lo:37.6156,fn:'95'},['95']);},60000);}
 };
 document.getElementById('wsave').onclick=async function(){
   if(WATCH.on){try{if(window.Notification&&Notification.permission!=='granted')await Notification.requestPermission();}catch(e){}
