@@ -76,6 +76,7 @@ function openSheet(id){
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
+    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 подъезд: <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
@@ -85,6 +86,7 @@ function openSheet(id){
   const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
+  if(window.TOMTOM_KEY)fetchFlow(id,s.la,s.lo).then(f=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 подъезд: '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
@@ -127,27 +129,45 @@ $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','
 
 restoreState();
 
-// ---- слой пробок TomTom ----
-let trafficLayer=null,trafficTimer=null;
-function setTraffic(on){
-  const k=window.TOMTOM_KEY;
-  const btn=$('traffic');
-  if(on&&k){
-    if(!trafficLayer)trafficLayer=L.tileLayer('https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key='+k,{maxZoom:22,opacity:.8,zIndex:250,crossOrigin:true});
-    trafficLayer.addTo(map);
-    if(btn){btn.style.background='var(--acc)';btn.style.color='#231800';btn.style.borderColor='transparent';btn.style.fontWeight='600';}
-    if(trafficTimer)clearInterval(trafficTimer);
-    trafficTimer=setInterval(()=>{if(trafficLayer&&map.hasLayer(trafficLayer))trafficLayer.redraw();},150000);
-  }else{
-    if(trafficLayer)map.removeLayer(trafficLayer);
-    if(trafficTimer){clearInterval(trafficTimer);trafficTimer=null;}
-    if(btn){btn.style.background='';btn.style.color='';btn.style.borderColor='';btn.style.fontWeight='';}
-  }
-  try{localStorage.setItem('br_traffic',on?'1':'0');}catch(e){}
+// ---- пробки ТОЧЕЧНО по АЗС (TomTom flowSegmentData) ----
+const FLOW={};
+async function fetchFlow(id,la,lo){
+  const c=FLOW[id];if(c&&Date.now()-c.ts<240000)return c;
+  if(!window.TOMTOM_KEY)return null;
+  try{
+    const r=await fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${la},${lo}&key=${window.TOMTOM_KEY}`);
+    if(!r.ok)throw 0;const d=(await r.json()).flowSegmentData;
+    const rec={cs:d.currentSpeed,ff:d.freeFlowSpeed,closed:d.roadClosure,ratio:d.freeFlowSpeed?d.currentSpeed/d.freeFlowSpeed:1,ts:Date.now()};
+    FLOW[id]=rec;return rec;
+  }catch(e){return null;}
 }
+function congColor(f){if(!f)return null;if(f.closed)return '#b00020';const r=f.ratio;return r>=.85?'#28c76f':r>=.55?'#ffc63d':'#ff5a5a';}
+function congText(f){if(!f)return '';if(f.closed)return '⛔ дорога перекрыта';const r=f.ratio;const w=r>=.85?'🟢 свободно':r>=.55?'🟡 местами плотно':'🔴 затор';return `${w} · ${f.cs} км/ч (обычно ${f.ff})`;}
+
+let trafficMode=false;const ringLayer=L.layerGroup();const rings={};let ringBusy=false;
+async function refreshRings(){
+  if(!trafficMode){for(const k in rings){ringLayer.removeLayer(rings[k]);delete rings[k];}$('trafficHint').style.display='none';return;}
+  if(map.getZoom()<14){for(const k in rings){ringLayer.removeLayer(rings[k]);delete rings[k];}$('trafficHint').style.display='block';$('trafficHint').textContent='🚦 приблизь карту, чтобы увидеть пробки у заправок';return;}
+  $('trafficHint').style.display='none';
+  if(ringBusy)return;ringBusy=true;
+  try{
+    const b=map.getBounds();const vis=ST.filter(s=>b.contains([s.la,s.lo])).slice(0,25);
+    for(const s of vis){const f=await fetchFlow(s.id,s.la,s.lo);const c=congColor(f);if(!c)continue;
+      if(!rings[s.id]){rings[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,radius:11,weight:3,color:c,fill:false,interactive:false});ringLayer.addLayer(rings[s.id]);}
+      else rings[s.id].setStyle({color:c});
+    }
+  }finally{ringBusy=false;}
+}
+ringLayer.addTo(map);
+let ringTimer=null;
+map.on('moveend zoomend',()=>{clearTimeout(ringTimer);ringTimer=setTimeout(refreshRings,400);});
 if(window.TOMTOM_KEY){
-  $('traffic').onclick=()=>setTraffic(!(trafficLayer&&map.hasLayer(trafficLayer)));
-  try{if(localStorage.getItem('br_traffic')==='1')setTraffic(true);}catch(e){}
+  $('traffic').onclick=()=>{trafficMode=!trafficMode;const b=$('traffic');
+    if(trafficMode){b.style.background='var(--acc)';b.style.color='#231800';b.style.borderColor='transparent';b.style.fontWeight='600';}
+    else{b.style.background='';b.style.color='';b.style.borderColor='';b.style.fontWeight='';}
+    try{localStorage.setItem('br_traffic',trafficMode?'1':'0');}catch(e){}
+    refreshRings();$('drawer').classList.remove('open');};
+  try{if(localStorage.getItem('br_traffic')==='1'){trafficMode=true;$('traffic').style.background='var(--acc)';$('traffic').style.color='#231800';$('traffic').style.borderColor='transparent';$('traffic').style.fontWeight='600';}}catch(e){}
 }else{const b=$('traffic');if(b)b.style.display='none';}
 
 loadLive();
