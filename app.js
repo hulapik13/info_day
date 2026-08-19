@@ -77,8 +77,10 @@ function openSheet(id){
     <input type="text" id="pwho" placeholder="имя" maxlength="20" value="${esc(localStorage.getItem('br_name')||'')}">
     <button class="primary" id="psave">Опубликовать</button></div>`:'';
   const html=`<div class="hdr">${esc(s.n)}</div><div style="color:var(--mut);font-size:12px">${s.b?esc(s.b)+' · ':''}${esc(s.ad||'')}</div>
+    <div style="font-size:11px;color:var(--mut);margin-top:8px">🚦 пробки на заезде (Яндекс, вживую):</div>
+    <div id="yamap" style="margin:5px 0;height:240px;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#0f1218;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px">загрузка карты Яндекса…</div>
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
-    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 пробки вокруг (500 м): <span style="opacity:.7">проверяю…</span></div>`:''}
+    ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 движение на заезд: <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · '+esc(s.stssrc):''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
     ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}<div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
@@ -88,7 +90,8 @@ function openSheet(id){
   const sc=$('sheetc');sc.innerHTML=html;sc.scrollTop=0;
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
-  if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id)el.innerHTML='🚦 пробки вокруг (500 м): '+areaSummary(segs);});
+  const ya=$('yamap');if(ya)ya.innerHTML='<iframe src="https://yandex.ru/map-widget/v1/?ll='+s.lo+'%2C'+s.la+'&z=18&l=map%2Ctrf&pt='+s.lo+'%2C'+s.la+'%2Cpm2rdm" width="100%" height="240" style="border:0" loading="lazy" referrerpolicy="no-referrer"></iframe>';
+  if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id){const f=segs&&segs[0];el.innerHTML='🚦 движение на заезд (оценка TomTom): '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');}});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
     document.querySelectorAll('.mini[data-q]').forEach(el=>el.onclick=()=>{document.querySelectorAll('.mini[data-q]').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');curQ=+el.dataset.q;});
@@ -99,7 +102,7 @@ function openSheet(id){
       window.__db.ref('reports').push({id:curId,ts:Date.now(),who,q:curQ==null?null:curQ,cars:(function(){const v=parseInt(($('pcars').value||'').trim(),10);return isNaN(v)?null:v;})(),note:($('pnote').value||'').trim(),yes,no}).then(()=>closeSheet()).catch(e=>alert('Ошибка: '+e.message));};
   },30);
 }
-function closeSheet(){$('sheet').classList.remove('on');$('backdrop').classList.remove('on');clearArea();}
+function closeSheet(){$('sheet').classList.remove('on');$('backdrop').classList.remove('on');clearArea();const ya=$('yamap');if(ya)ya.innerHTML='';}
 window.closeSheet=closeSheet;
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet();});
 window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?ll=${s.lo},${s.la}&z=17&l=trf`;const rr=REPORTS[id];const cars=(rr&&rr.cars!=null)?` · ~${rr.cars} машин`:(s.q?` · ${s.q}`:'');const text=`⛽ ${s.n} — ${SLAB[s.s]||''}${s.fn?' ('+s.fn+')':''}${cars} — ${url}`;
@@ -131,7 +134,7 @@ $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','
 
 restoreState();
 
-const RADIUS=500; // метры вокруг АЗС
+const RADIUS=150; // метры: только дорога у заезда на АЗС
 function distM(la1,lo1,la2,lo2){return Math.hypot((la1-la2)*111320,(lo1-lo2)*111320*Math.cos(la1*Math.PI/180));}
 function clipRuns(coords,la,lo,m){const runs=[];let cur=[];for(const p of coords){if(distM(p[0],p[1],la,lo)<=m)cur.push(p);else{if(cur.length>1)runs.push(cur);cur=[];}}if(cur.length>1)runs.push(cur);return runs;}
 // ---- пробки вокруг АЗС (радиус RADIUS) ----
@@ -158,21 +161,15 @@ const focusLayer=L.layerGroup();
 function clearArea(){focusLayer.clearLayers();if(map.hasLayer(focusLayer))map.removeLayer(focusLayer);}
 async function showArea(id,la,lo){
   clearArea();focusLayer.addTo(map);
-  L.circle([la,lo],{radius:RADIUS,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
-  const pts=[[la,lo],...ringPoints(la,lo,0.25,6),...ringPoints(la,lo,0.45,8)];
-  const seen=new Set(),segs=[];
-  await Promise.all(pts.map(async p=>{
-    const f=await fetchPoint(p[0],p[1]);if(!f||!f.coords||f.coords.length<2)return;
-    const k=f.coords[0][0].toFixed(4)+f.coords[0][1].toFixed(4)+f.coords[f.coords.length-1][0].toFixed(4);
-    if(seen.has(k))return;seen.add(k);segs.push(f);
-    if(curId!==id)return;
-    const c=congColor(f);
-    clipRuns(f.coords,la,lo,RADIUS).forEach(run=>{
-      L.polyline(run,{color:'#0b0d12',weight:8,opacity:.45,interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
-      L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
-    });
-  }));
-  return segs;
+  L.circle([la,lo],{radius:RADIUS,color:'#ffb020',weight:1.5,opacity:.6,fill:false,dashArray:'4 6',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
+  const f=await fetchPoint(la,lo);
+  if(!f||!f.coords||f.coords.length<2||curId!==id)return f?[f]:[];
+  const c=congColor(f);
+  clipRuns(f.coords,la,lo,RADIUS).forEach(run=>{
+    L.polyline(run,{color:'#0b0d12',weight:9,opacity:.5,interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
+    L.polyline(run,{color:c,weight:6,opacity:.97,lineCap:'round',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
+  });
+  return [f];
 }
 function areaSummary(segs){
   if(!segs.length)return '<span style="opacity:.6">нет данных по дорогам вокруг</span>';
