@@ -3,6 +3,8 @@ const esc=s=>String(s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&g
 const map=L.map('map',{preferCanvas:true,tap:true}).setView([55.75,37.62],10);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM · наличие © ГдеБенз'}).addTo(map);
 const canvas=L.canvas({padding:.5});map.attributionControl.setPrefix(false);
+map.createPane('trafficPane');map.getPane('trafficPane').style.zIndex=350;map.getPane('trafficPane').style.pointerEvents='none';
+const trafficRenderer=L.canvas({pane:'trafficPane',padding:.5});
 const FORDER=['92','95','98','100','ДТ'];
 
 let ST=[],IDX={},REPORTS={},MY=null,fetchedAt=0;
@@ -120,10 +122,10 @@ function restoreState(){try{const d=JSON.parse(localStorage.getItem('br_filters'
   (d.fuel||[]).forEach(v=>{state.fuel.add(v);const c=document.querySelector('#fuels .chip[data-f="'+v+'"]');if(c)c.classList.add('on');});
   if(d.q){state.q=d.q;$('q').value=d.q;}}catch(e){}}
 $('togg').onclick=()=>$('drawer').classList.toggle('open');
-$('q').oninput=e=>{state.q=e.target.value;saveState();refresh();};
-$('sts').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.st.has(c.dataset.s)?state.st.delete(c.dataset.s):state.st.add(c.dataset.s);saveState();refresh();};
-$('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.fuel.has(c.dataset.f)?state.fuel.delete(c.dataset.f):state.fuel.add(c.dataset.f);saveState();refresh();};
-$('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();};
+$('q').oninput=e=>{state.q=e.target.value;saveState();refresh();if(trafficMode)refreshLines();};
+$('sts').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.st.has(c.dataset.s)?state.st.delete(c.dataset.s):state.st.add(c.dataset.s);saveState();refresh();if(trafficMode)refreshLines();};
+$('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.fuel.has(c.dataset.f)?state.fuel.delete(c.dataset.f):state.fuel.add(c.dataset.f);saveState();refresh();if(trafficMode)refreshLines();};
+$('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();if(trafficMode)refreshLines();};
 $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
@@ -156,7 +158,7 @@ const focusLayer=L.layerGroup();
 function clearArea(){focusLayer.clearLayers();if(map.hasLayer(focusLayer))map.removeLayer(focusLayer);}
 async function showArea(id,la,lo){
   clearArea();focusLayer.addTo(map);
-  L.circle([la,lo],{radius:RADIUS,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false}).addTo(focusLayer);
+  L.circle([la,lo],{radius:RADIUS,color:'#ffb020',weight:1.5,opacity:.7,fill:false,dashArray:'5 7',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
   const pts=[[la,lo],...ringPoints(la,lo,0.25,6),...ringPoints(la,lo,0.45,8)];
   const seen=new Set(),segs=[];
   await Promise.all(pts.map(async p=>{
@@ -166,8 +168,8 @@ async function showArea(id,la,lo){
     if(curId!==id)return;
     const c=congColor(f);
     clipRuns(f.coords,la,lo,RADIUS).forEach(run=>{
-      L.polyline(run,{color:'#0b0d12',weight:8,opacity:.45,interactive:false}).addTo(focusLayer);
-      L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false}).addTo(focusLayer);
+      L.polyline(run,{color:'#0b0d12',weight:8,opacity:.45,interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
+      L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',interactive:false,renderer:trafficRenderer}).addTo(focusLayer);
     });
   }));
   return segs;
@@ -206,13 +208,15 @@ async function refreshLines(){
   $('trafficHint').style.display='none';
   if(ringBusy)return;ringBusy=true;
   try{
-    const b=map.getBounds();const vis=ST.filter(s=>b.contains([s.la,s.lo])).slice(0,25);
+    const b=map.getBounds();const vis=ST.filter(s=>b.contains([s.la,s.lo])&&visible(s)).slice(0,25);
+    const visIds=new Set(vis.map(s=>s.id));
+    for(const k in lines){if(!visIds.has(k)){lineLayer.removeLayer(lines[k]);delete lines[k];}}
     await Promise.all(vis.map(async s=>{
       const f=await fetchFlow(s.id,s.la,s.lo);const c=congColor(f);if(!c||!f.coords||f.coords.length<2)return;
       if(lines[s.id])lineLayer.removeLayer(lines[s.id]);
       const runs=clipRuns(f.coords,s.la,s.lo,RADIUS);if(!runs.length)return;
       const g=L.layerGroup();
-      runs.forEach(run=>{g.addLayer(L.polyline(run,{color:'#0b0d12',weight:9,opacity:.5,lineCap:'round',lineJoin:'round',interactive:false}));g.addLayer(L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',lineJoin:'round',interactive:false}));});
+      runs.forEach(run=>{g.addLayer(L.polyline(run,{color:'#0b0d12',weight:9,opacity:.5,lineCap:'round',lineJoin:'round',interactive:false,renderer:trafficRenderer}));g.addLayer(L.polyline(run,{color:c,weight:5,opacity:.95,lineCap:'round',lineJoin:'round',interactive:false,renderer:trafficRenderer}));});
       lines[s.id]=g;lineLayer.addLayer(g);
     }));
   }finally{ringBusy=false;}
