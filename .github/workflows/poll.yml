@@ -26,7 +26,12 @@ jobs:
             curl -sS -m 40 -A "$UA" "https://xn--80aaapn8cdd.xn--p1ai/api/stations?minLat=55.15&maxLat=56.25&minLng=36.5&maxLng=38.75" -o src_azsradar.json || echo "azsradar fail"
             python3 merge.py || echo "merge fail"
             git add live.json
-            git commit -m "live: агрегат $(date -u +%FT%TZ)" && git push || echo "без изменений"
+            if git commit -m "live: агрегат $(date -u +%FT%TZ)"; then
+              git pull --rebase -X ours origin master 2>/dev/null || git rebase --abort 2>/dev/null || true
+              git push origin master || { git pull --rebase -X ours origin master 2>/dev/null; git push origin master || echo "push не удался"; }
+            else
+              echo "без изменений"
+            fi
             echo "::endgroup::"
             [ "$i" -lt 5 ] && sleep 300 || true
           done
