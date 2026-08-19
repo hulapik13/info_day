@@ -9,7 +9,8 @@ def load(p):
 
 g0=load('src_gdebenz.json')   # gdebenz.org: osm_id,name,brand,lat,lon,addr,status,fuels_now,prices_now
 g1=load('src_gdebenzi.json')  # gdebenzi.ru: id,name,lat,lon,status,fuelsYes/No/Maybe,queueTxt,markts,prices,limits
-ar=load('src_azsradar.json')  # азсрадар: latitude,longitude,status,queue_size,fuel_statuses,status_updated_at
+ar=load('src_azsradar.json')  # азсрадар
+br=load('src_benzrf.json')    # benzrf.ru: lat,lng,status,fuelTypes,limitLiters,lastReportAt (+T-Bank)
 
 NOW=int(time.time())
 def isots(s):
@@ -30,7 +31,7 @@ def build(idx_list,latk,lok):
         if la is None or lo is None:continue
         g.setdefault(cell(la,lo),[]).append(o)
     return g
-G1=build(g1,'lat','lon'); AR=build(ar,'latitude','longitude')
+G1=build(g1,'lat','lon'); AR=build(ar,'latitude','longitude'); BR=build(br,'lat','lng')
 def near(g,la,lo,latk,lok,lim=70):
     best=None;bd=lim
     for dla in(-1,0,1):
@@ -41,24 +42,28 @@ def near(g,la,lo,latk,lok,lim=70):
     return best
 
 out=[]
-used1=set();usedA=set()
+used1=set();usedA=set();usedB=set()
+BST={'available':'yes','limited':'low','none':'no','unknown':None}
 for s in g0:
     la,lo=s['lat'],s['lon']
     m1=near(G1,la,lo,'lat','lon'); a=near(AR,la,lo,'latitude','longitude')
     if m1:used1.add(id(m1))
     if a:usedA.add(id(a))
-    # статус
-    st=s.get('status')
-    if not st and m1 and m1.get('status') and (NOW-(m1.get('markts') or 0)<12*3600):
-        st=m1['status']
-    if not st and a:
+    b=near(BR,la,lo,'lat','lng')
+    if b:usedB.add(id(b))
+    cand=[]
+    if m1 and m1.get('status'): cand.append((m1['status'], int(m1.get('markts') or 0), 'gdebenzi'))
+    if a:
         am={'ok':'yes','empty':'no'}.get(a.get('status'))
-        if am and NOW-isots(a.get('status_updated_at') or '')<12*3600:st=am
-    # когда реально обновляли наличие (метку времени дают gdebenzi/азсрадар)
-    sts=None;stssrc=None
-    if m1 and m1.get('markts'):sts=int(m1['markts']);stssrc='gdebenzi'
-    a_ts=isots(a.get('status_updated_at') or '') if a else 0
-    if a_ts and a_ts>(sts or 0):sts=int(a_ts);stssrc='азсрадар'
+        if am: cand.append((am, int(isots(a.get('status_updated_at') or '')), 'азсрадар'))
+    if b:
+        bm=BST.get(b.get('status'))
+        if bm: cand.append((bm, int((b.get('lastReportAt') or 0)/1000), 'benzrf'))
+    cand=[c for c in cand if c[1]>0]
+    st=s.get('status'); sts=None; stssrc=None
+    if cand:
+        best=max(cand,key=lambda c:c[1]); sts=best[1]; stssrc=best[2]
+        if (not st) or (NOW-best[1] < 12*3600): st=best[0]
     # очередь в машинах
     q=None;qsrc=None
     if m1 and m1.get('queueTxt'):q=m1['queueTxt'];qsrc='gdebenzi'
@@ -74,6 +79,10 @@ for s in g0:
             fk=AKEY.get(k)
             if fk and v=='ok':avail.add(fk)
             if fk and v=='empty':no.add(fk)
+    if b:
+        for f in (b.get('fuelTypes') or []):
+            fk=PKEY.get(f)
+            if fk:avail.add(fk)
     no-=avail
     # цены (g0 приоритет, добираем из gdebenzi)
     pr=dict(s.get('prices_now') or {})
@@ -85,12 +94,14 @@ for s in g0:
     lim=None
     if m1 and m1.get('limits'):
         lim={nlbl(k):v for k,v in m1['limits'].items()}
+    if lim is None and b and b.get('limitLiters'):
+        lim={'все':b['limitLiters']}
     conf=None;nrep=None
     if m1:
         if m1.get('confPct') is not None:conf=m1['confPct']
         nrep=m1.get('reports') or m1.get('metki')
     if conf is None and a and a.get('confidence_percent') is not None:conf=a['confidence_percent']
-    srcs=['gdebenz']+(['gdebenzi'] if m1 else [])+(['азсрадар'] if a else [])
+    srcs=['gdebenz']+(['gdebenzi'] if m1 else [])+(['азсрадар'] if a else [])+(['benzrf'] if b else [])
     out.append({'id':s['osm_id'],'n':s.get('name') or 'АЗС','b':s.get('brand') or '',
                 'la':round(la,6),'lo':round(lo,6),'ad':s.get('addr') or '',
                 's':st,'fn':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in avail]),
@@ -117,7 +128,7 @@ def add_extra(lst,latk,lok,getst,getname,used,srcname):
 e1=add_extra(g1,'lat','lon',lambda o:o.get('status') if (NOW-(o.get('markts') or 0)<12*3600) else None,lambda o:o.get('name'),used1,'gdebenzi')
 
 res={'fetched_at':datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-     'sources':['gdebenz.ru','gdebenzi.ru','азсрадар.рф'],'stations':out}
+     'sources':['gdebenz.ru','gdebenzi.ru','азсрадар.рф','benzrf.ru'],'stations':out}
 json.dump(res,open('live.json','w'),ensure_ascii=False,separators=(',',':'))
 withq=sum(1 for x in out if x['q']); wl=sum(1 for x in out if x['lim'])
 print(f"итого станций: {len(out)} (+{e1} только из gdebenzi) | с очередью-в-машинах: {withq} | с лимитами: {wl}")

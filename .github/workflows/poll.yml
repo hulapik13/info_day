@@ -24,6 +24,7 @@ jobs:
             curl -sS -m 40 -A "$UA" "https://gdebenz.org/api/stations?lat1=55.15&lat2=56.25&lon1=36.5&lon2=38.75" -o src_gdebenz.json || echo "gdebenz fail"
             curl -sS -m 40 -A "$UA" "https://gdebenzi.ru/api/stations.php?bbox=36.5,55.15,38.75,56.25" -o src_gdebenzi.json || echo "gdebenzi fail"
             curl -sS -m 40 -A "$UA" "https://xn--80aaapn8cdd.xn--p1ai/api/stations?minLat=55.15&maxLat=56.25&minLng=36.5&maxLng=38.75" -o src_azsradar.json || echo "azsradar fail"
+            curl -sS -m 40 -A "$UA" "https://benzrf.ru/api/stations?bbox=55.15,36.5,56.25,38.75" -o src_benzrf.json || echo "benzrf fail"
             python3 merge.py || echo "merge fail"
             git add live.json
             if git commit -m "live: агрегат $(date -u +%FT%TZ)"; then
