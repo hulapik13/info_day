@@ -97,6 +97,34 @@ for s in g0:
         lim={nlbl(k):v for k,v in m1['limits'].items()}
     if lim is None and b and b.get('limitLiters'):
         lim={'все':b['limitLiters']}
+    # --- надёжность: согласие источников + T-Bank + свежесть ---
+    def bucket(x):
+        if x in ('yes','available','ok'): return 'y'
+        if x in ('no','none','empty'): return 'n'
+        if x in ('queue','low','limited'): return 'p'
+        return None
+    fb=bucket(st)
+    agree=0; total=0
+    for src_st in [s.get('status'),
+                   (m1.get('status') if m1 else None),
+                   ({'ok':'yes','empty':'no'}.get(a.get('status')) if a else None),
+                   (BST.get(b.get('status')) if b else None)]:
+        bk=bucket(src_st)
+        if bk: 
+            total+=1
+            if fb and bk==fb: agree+=1
+    tbank = bool(b and b.get('statusSource') in ('tbank','tbank-confirmed'))
+    ageMin = int((NOW-sts)/60) if sts else None
+    lvl='low'
+    if agree>=3: lvl='high'
+    elif agree==2: lvl='mid'
+    if tbank and lvl=='low': lvl='mid'
+    if tbank and agree>=2: lvl='high'
+    if ageMin is None: lvl='low'
+    elif ageMin>360: lvl='low'
+    elif ageMin>120: lvl={'high':'mid','mid':'low','low':'low'}[lvl]
+    if not st: lvl='none'
+    rel={'lvl':lvl,'agree':agree,'total':total,'tbank':tbank,'ageMin':ageMin}
     conf=None;nrep=None
     if m1:
         if m1.get('confPct') is not None:conf=m1['confPct']
@@ -107,7 +135,7 @@ for s in g0:
                 'la':round(la,6),'lo':round(lo,6),'ad':s.get('addr') or '',
                 's':st,'fn':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in avail]),
                 'no':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in no]),
-                'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'conf':conf,'nrep':nrep,'lim':lim,'pr':pr,'src':srcs})
+                'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'conf':conf,'nrep':nrep,'rel':rel,'lim':lim,'pr':pr,'src':srcs})
 
 # добавим станции из gdebenzi/азсрадар, которых нет в базе, но со свежим реальным статусом
 def add_extra(lst,latk,lok,getst,getname,used,srcname):
