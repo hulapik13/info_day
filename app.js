@@ -139,7 +139,7 @@ $('q').oninput=e=>{state.q=e.target.value;saveState();refresh();if(trafficMode)r
 $('sts').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.st.has(c.dataset.s)?state.st.delete(c.dataset.s):state.st.add(c.dataset.s);saveState();refresh();if(trafficMode)refreshLines();};
 $('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classList.toggle('on');state.fuel.has(c.dataset.f)?state.fuel.delete(c.dataset.f):state.fuel.add(c.dataset.f);saveState();refresh();if(trafficMode)refreshLines();};
 $('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();if(trafficMode)refreshLines();};
-$('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');},()=>alert('Нет доступа к геопозиции'));};
+$('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');drawWatch();},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
 
 // ---- расстояние до меня ----
@@ -168,37 +168,74 @@ function openList(){
 }
 $('listBody').onclick=e=>{const li=e.target.closest('.li');if(!li)return;$('listPanel').classList.remove('on');openSheet(li.dataset.id);};
 $('list').onclick=openList;
-// ---- уведомления ----
-let prevStatus=null;
+// ---- уведомления о бензине (зона + топливо) ----
+const WATCH=Object.assign({on:false,mode:'me',lat:null,lng:null,radius:5,fuels:[]},JSON.parse(localStorage.getItem('br_watch')||'{}'));
+function saveWatch(){try{localStorage.setItem('br_watch',JSON.stringify(WATCH));}catch(e){}}
+function watchCenter(){if(WATCH.mode==='me')return MY;if(WATCH.lat!=null)return [WATCH.lat,WATCH.lng];return null;}
+let watchCircle=null,watchPin=null,pickMode=false;
+function drawWatch(){
+  if(watchCircle){map.removeLayer(watchCircle);watchCircle=null;}
+  if(watchPin){map.removeLayer(watchPin);watchPin=null;}
+  if(!WATCH.on)return;
+  const ctr=watchCenter();if(!ctr)return;
+  watchCircle=L.circle(ctr,{radius:WATCH.radius*1000,color:'#ffb020',weight:1.5,opacity:.7,fillColor:'#ffb020',fillOpacity:.06,interactive:false}).addTo(map);
+  if(WATCH.mode==='point'){
+    watchPin=L.marker(ctr,{draggable:true}).addTo(map);
+    watchPin.on('dragend',function(){const p=watchPin.getLatLng();WATCH.lat=p.lat;WATCH.lng=p.lng;saveWatch();drawWatch();});
+  }
+}
+map.on('click',function(e){if(pickMode){pickMode=false;WATCH.mode='point';WATCH.lat=e.latlng.lat;WATCH.lng=e.latlng.lng;saveWatch();drawWatch();openWatch();toast('Центр уведомлений установлен');}});
+let prevFuels=null;
 function checkNotify(){
-  if(localStorage.getItem('br_notify')!=='1'){prevStatus=null;return;}
-  const wanted=[...state.fuel];
-  if(prevStatus){
+  if(!WATCH.on){prevFuels=null;return;}
+  const want=WATCH.fuels.length?WATCH.fuels:['92','95','98','100','ДТ'];
+  const ctr=watchCenter();
+  const cur={};for(const s of ST)cur[s.id]=new Set((s.fn||'').split(',').filter(Boolean));
+  if(prevFuels){
     for(const s of ST){
-      const now=s.s, prev=prevStatus[s.id];
-      if(prev&&prev!=='yes'&&now==='yes'){
-        const watched=isFav(s.id)||(MY&&distM(s.la,s.lo,MY[0],MY[1])<3000);
-        const okFuel=!wanted.length||wanted.some(f=>(s.fn||'').split(',').includes(f));
-        if(watched&&okFuel)fireNotify(s);
-      }
+      const watched=isFav(s.id)||(ctr&&distM(s.la,s.lo,ctr[0],ctr[1])<=WATCH.radius*1000);
+      if(!watched)continue;
+      const now=cur[s.id],was=prevFuels[s.id]||new Set();
+      const app=want.filter(f=>now.has(f)&&!was.has(f));
+      if(app.length)fireNotify(s,app);
     }
   }
-  prevStatus={};ST.forEach(s=>prevStatus[s.id]=s.s);
+  prevFuels=cur;
 }
-function fireNotify(s){
-  const msg='⛽ Появился бензин: '+s.n+(s.fn?' ('+s.fn+')':'')+(MY?' · '+myDist(s).toFixed(1)+' км':'');
-  toast(msg,7000);
-  try{if(window.Notification&&Notification.permission==='granted')new Notification('Бензин-радар',{body:msg,icon:'icon-192.png',tag:s.id});}catch(e){}
+function fireNotify(s,fuels){
+  const msg='Появился '+fuels.join(', ')+' — '+s.n+(MY?' · '+myDist(s).toFixed(1)+' км':'');
+  toast('⛽ '+msg,7000);
+  try{if(window.Notification&&Notification.permission==='granted')new Notification('⛽ Бензин-радар',{body:msg,icon:'icon-192.png',tag:s.id+':'+fuels.join('')});}catch(e){}
 }
-$('notify').onclick=async()=>{
-  const on=localStorage.getItem('br_notify')==='1';
-  if(!on){
-    try{if(window.Notification&&Notification.permission!=='granted')await Notification.requestPermission();}catch(e){}
-    localStorage.setItem('br_notify','1');$('notify').textContent='🔔 Слежу ✓';
-    toast('Слежу за избранными ★ и заправками рядом — сообщу, когда появится бензин (пока вкладка открыта)',6000);
-  }else{localStorage.setItem('br_notify','0');$('notify').textContent='🔔 Уведомления';}
+function renderWatch(){
+  document.getElementById('wsw').classList.toggle('on',WATCH.on);
+  document.getElementById('wmode-me').classList.toggle('sel',WATCH.mode==='me');
+  document.getElementById('wmode-point').classList.toggle('sel',WATCH.mode==='point');
+  document.getElementById('wpointrow').style.display=WATCH.mode==='point'?'block':'none';
+  document.getElementById('wcoord').textContent=(WATCH.lat!=null)?('точка: '+WATCH.lat.toFixed(4)+', '+WATCH.lng.toFixed(4)):'точка не задана — нажми кнопку и тапни карту';
+  document.getElementById('wradius').value=WATCH.radius;
+  document.getElementById('wradval').textContent=WATCH.radius+' км';
+  document.querySelectorAll('#wfuels .wopt').forEach(function(o){o.classList.toggle('sel',WATCH.fuels.includes(o.dataset.f));});
+}
+function openWatch(){renderWatch();document.getElementById('watchPanel').classList.add('on');}
+$('notify').onclick=openWatch;
+document.getElementById('wsw').onclick=function(){WATCH.on=!WATCH.on;renderWatch();};
+document.getElementById('wmode-me').onclick=function(){WATCH.mode='me';renderWatch();};
+document.getElementById('wmode-point').onclick=function(){WATCH.mode='point';renderWatch();};
+document.getElementById('wradius').oninput=function(e){WATCH.radius=+e.target.value;document.getElementById('wradval').textContent=WATCH.radius+' км';};
+document.getElementById('wfuels').onclick=function(e){const o=e.target.closest('.wopt');if(!o)return;const f=o.dataset.f;const i=WATCH.fuels.indexOf(f);if(i>=0)WATCH.fuels.splice(i,1);else WATCH.fuels.push(f);renderWatch();};
+document.getElementById('wpick').onclick=function(){pickMode=true;document.getElementById('watchPanel').classList.remove('on');toast('Тапни точку на карте',5000);};
+document.getElementById('wsave').onclick=async function(){
+  if(WATCH.on){try{if(window.Notification&&Notification.permission!=='granted')await Notification.requestPermission();}catch(e){}
+    if(WATCH.mode==='me'&&!MY&&navigator.geolocation)navigator.geolocation.getCurrentPosition(function(p){MY=[p.coords.latitude,p.coords.longitude];drawWatch();},function(){});}
+  saveWatch();prevFuels=null;
+  document.getElementById('watchPanel').classList.remove('on');
+  $('notify').textContent=WATCH.on?'\U0001f514 Слежу ✓':'\U0001f514 Уведомления';
+  drawWatch();
+  toast(WATCH.on?'Слежу за зоной — пришлю пуш, когда появится топливо':'Уведомления выключены');
 };
-if(localStorage.getItem('br_notify')==='1')$('notify').textContent='🔔 Слежу ✓';
+if(WATCH.on)$('notify').textContent='\U0001f514 Слежу ✓';
+
 // ---- поделиться видом ----
 $('share').onclick=()=>{
   const p=new URLSearchParams();
@@ -327,5 +364,6 @@ if(window.TOMTOM_KEY){
 
 loadLive();
 setInterval(loadLive,180000);
+drawWatch();
 setTimeout(()=>map.invalidateSize(),200);
 window.addEventListener('resize',()=>map.invalidateSize());

@@ -87,6 +87,24 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
 #toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--g);color:var(--tx);padding:11px 16px;border-radius:12px;z-index:2000;opacity:0;pointer-events:none;transition:.3s;font-size:14px;max-width:90vw;box-shadow:0 6px 24px rgba(0,0,0,.5)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 .starbtn{background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;color:var(--acc)}
+
+#watchPanel{position:fixed;inset:0;background:var(--bg);z-index:1750;display:none;flex-direction:column}
+#watchPanel.on{display:flex}
+#watchPanel .wh{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+#watchPanel .wh h2{margin:0;font-size:17px;flex:1}
+#watchBody{overflow-y:auto;flex:1;padding:14px}
+.wsect{margin:0 0 18px}
+.wsect .lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+.wtoggle{display:flex;align-items:center;gap:10px;font-size:16px}
+.sw{width:52px;height:30px;border-radius:16px;background:#2c323f;position:relative;transition:.2s;flex:0 0 auto;cursor:pointer}
+.sw.on{background:var(--g)}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on::after{left:25px}
+.wseg{display:flex;gap:8px;flex-wrap:wrap}
+.wopt{padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:#0f1218;color:var(--tx);cursor:pointer;font-size:14px}
+.wopt.sel{background:var(--acc);color:#231800;border-color:transparent;font-weight:600}
+#wradius{width:100%}
+.wval{color:var(--acc);font-weight:600}
 </style></head><body>
 <div id="wrap">
   <div id="top">
@@ -122,7 +140,7 @@ input[type=search]{width:100%;padding:11px 12px;border-radius:10px;border:1px so
   <div id="trafficHint" style="display:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--acc);color:var(--acc);padding:8px 14px;border-radius:20px;font-size:13px;z-index:1400;box-shadow:0 4px 16px rgba(0,0,0,.4)">🚦 приблизь карту</div>
 </div>
 <script src="vendor/leaflet.js"></script>
-<script src="config.js?v=19"></script>
+<script src="config.js?v=20"></script>
 <script>
 window.__fbReady=false;
 (function(){var c=window.FIREBASE_CONFIG||{};if(!c.databaseURL)return;
@@ -132,9 +150,24 @@ window.__fbReady=false;
   document.head.appendChild(s1);})();
 </script>
 <div id="listPanel"><div id="listHead"><h2>Список заправок</h2><button onclick="document.getElementById('listPanel').classList.remove('on')" style="background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;cursor:pointer">✕</button></div><div id="listBody"></div></div>
+<div id="watchPanel"><div class="wh"><h2>🔔 Уведомления о бензине</h2><button onclick="document.getElementById('watchPanel').classList.remove('on');drawWatch()" style="background:#0f1218;border:1px solid var(--line);color:var(--tx);border-radius:8px;padding:8px 12px;cursor:pointer">✕</button></div>
+<div id="watchBody">
+  <div class="wsect"><label class="wtoggle"><span id="wsw" class="sw"></span><span>Присылать уведомления</span></label>
+    <div style="font-size:12px;color:var(--mut);margin-top:6px">Когда в выбранной зоне появится заданное топливо — придёт пуш на телефон.</div></div>
+  <div class="wsect"><div class="lbl">Где искать</div>
+    <div class="wseg"><div class="wopt" id="wmode-me">📍 Рядом со мной</div><div class="wopt" id="wmode-point">📌 Точка на карте</div></div>
+    <div id="wpointrow" style="margin-top:8px;display:none"><button id="wpick" style="width:100%;padding:11px;border-radius:10px;border:1px dashed var(--acc);background:transparent;color:var(--acc);cursor:pointer">Указать точку на карте</button><div id="wcoord" style="font-size:12px;color:var(--mut);margin-top:6px"></div></div></div>
+  <div class="wsect"><div class="lbl">Радиус: <span class="wval" id="wradval">5 км</span></div>
+    <input type="range" id="wradius" min="0.5" max="20" step="0.5" value="5"></div>
+  <div class="wsect"><div class="lbl">Какое топливо ждём</div>
+    <div class="wseg" id="wfuels"><div class="wopt" data-f="92">92</div><div class="wopt" data-f="95">95</div><div class="wopt" data-f="98">98</div><div class="wopt" data-f="100">100</div><div class="wopt" data-f="ДТ">ДТ</div></div>
+    <div style="font-size:12px;color:var(--mut);margin-top:6px">Ничего не выбрано = любое топливо.</div></div>
+  <div class="wsect" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;color:var(--mut)">⭐ Заправки, отмеченные звездой, отслеживаются <b>всегда</b> — независимо от радиуса.</div>
+  <button id="wsave" style="width:100%;padding:13px;border-radius:11px;border:none;background:var(--acc);color:#231800;font-weight:600;font-size:16px;cursor:pointer">Сохранить</button>
+</div></div>
 <div id="toast"></div>
 <div id="backdrop" onclick="closeSheet()"></div>
 <div id="sheet"><button class="sheetX" onclick="closeSheet()">✕</button><div class="handle"></div><div id="sheetc"></div></div>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}</script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 </body></html>
