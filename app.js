@@ -125,7 +125,7 @@ window.shareAZS=function(id){const s=IDX[id];const url=`https://yandex.ru/maps/?
 
 window.initRealtime=function(){window.__db.ref('reports').limitToLast(4000).on('value',snap=>{const l={};snap.forEach(ch=>{const r=ch.val();if(!r||!r.id)return;if(!l[r.id]||r.ts>l[r.id].ts)l[r.id]=r;});REPORTS=l;refresh();});};
 
-function updateSrcLabel(){if(!fetchedAt)return;const mins=Math.round((Date.now()-fetchedAt)/60000);$('src').innerHTML='наличие © <b>ГдеБенз</b> · обновлено '+(mins<=1?'только что':mins+' мин назад');}
+function updateSrcLabel(){if(!fetchedAt)return;const mins=Math.round((Date.now()-fetchedAt)/60000);$('src').innerHTML='обновлено '+(mins<=1?'только что':mins+' мин назад');}
 setInterval(updateSrcLabel,30000);
 async function loadLive(){
   try{let r;try{r=await fetch('live.json?t='+Date.now());if(!r.ok)throw 0;}catch(_){r=await fetch('https://raw.githubusercontent.com/hulapik13/info_day/master/live.json?t='+Date.now());}
