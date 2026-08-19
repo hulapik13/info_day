@@ -45,10 +45,13 @@ function visible(s){
   return true;
 }
 function refresh(){
-  let shown=0,fresh=0;
+  const b=map.getBounds().pad(0.25);
+  let matched=0,fresh=0;
   for(const s of ST){
-    if(!visible(s)){if(markers[s.id]){map.removeLayer(markers[s.id]);delete markers[s.id];}continue;}
-    shown++;const eff=effective(s);
+    const ok=visible(s);if(ok)matched++;
+    const render=ok&&b.contains([s.la,s.lo]);
+    if(!render){if(markers[s.id]){map.removeLayer(markers[s.id]);delete markers[s.id];}continue;}
+    const eff=effective(s);
     const hasFriend=REPORTS[s.id]&&Date.now()-REPORTS[s.id].ts<3600e3;if(hasFriend)fresh++;
     const rad=s.s&&s.s!=='no'?6:(s.s?5:4);
     const stale=s.sts&&(Date.now()-s.sts*1000>6*3600e3);
@@ -57,8 +60,10 @@ function refresh(){
     if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openSheet(s.id)).addTo(map);}
     else markers[s.id].setStyle(style);
   }
-  $('stat').textContent=`Показано ${shown} из ${ST.length}`+(window.__fbReady?` · отметок друзей ${fresh}`:'');
+  $('stat').textContent=`Показано ${matched} из ${ST.length}`+(window.__fbReady?` · отметок друзей ${fresh}`:'');
 }
+let _cull=null;
+map.on('moveend',()=>{clearTimeout(_cull);_cull=setTimeout(refresh,120);});
 
 let curPick={},curQ=null,curId=null;
 function openSheet(id){
@@ -142,6 +147,13 @@ $('fuels').onclick=e=>{const c=e.target.closest('.chip');if(!c)return;c.classLis
 $('reset').onclick=()=>{state.st.clear();state.fuel.clear();state.q='';$('q').value='';document.querySelectorAll('.chip.on').forEach(c=>c.classList.remove('on'));saveState();refresh();if(trafficMode)refreshLines();};
 $('near').onclick=()=>{if(!navigator.geolocation){alert('Геолокация недоступна');return;}navigator.geolocation.getCurrentPosition(p=>{MY=[p.coords.latitude,p.coords.longitude];L.circleMarker(MY,{radius:8,color:'#fff',fillColor:'#ffb020',fillOpacity:1}).addTo(map).bindPopup('Вы здесь');map.setView(MY,14);$('drawer').classList.remove('open');drawWatch();},()=>alert('Нет доступа к геопозиции'));};
 $('yandex').onclick=()=>window.open('https://yandex.ru/maps/213/moscow/?l=trf','_blank');
+document.getElementById('clearcache').onclick=async()=>{
+  try{if(window.AndroidBridge&&AndroidBridge.clearCache){AndroidBridge.clearCache();}}catch(e){}
+  try{if('serviceWorker' in navigator){const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();}}catch(e){}
+  try{if(window.caches){const ks=await caches.keys();for(const k of ks)await caches.delete(k);}}catch(e){}
+  toast('Кэш очищен, обновляю…');
+  setTimeout(()=>location.reload(),500);
+};
 
 // ---- расстояние до меня ----
 const KREM=[55.75216,37.61754];
@@ -179,9 +191,9 @@ function drawWatch(){
   if(watchPin){map.removeLayer(watchPin);watchPin=null;}
   if(!WATCH.on)return;
   const ctr=watchCenter();if(!ctr)return;
-  watchCircle=L.circle(ctr,{radius:WATCH.radius*1000,color:'#ffb020',weight:1.5,opacity:.7,fillColor:'#ffb020',fillOpacity:.06,interactive:false}).addTo(map);
+  watchCircle=L.circle(ctr,{radius:WATCH.radius*1000,color:'#2b9bf4',weight:2,opacity:.9,fillColor:'#2b9bf4',fillOpacity:.18,interactive:false}).addTo(map);
   if(WATCH.mode==='point'){
-    watchPin=L.marker(ctr,{draggable:true}).addTo(map);
+    watchPin=L.marker(ctr,{draggable:true,icon:L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,13],html:'<div style="width:22px;height:22px;border-radius:50%;border:3px solid #2b9bf4;background:rgba(43,155,244,.55);box-shadow:0 0 0 2px #12141a,0 2px 6px rgba(0,0,0,.5)"></div>'})}).addTo(map);
     watchPin.on('dragend',function(){const p=watchPin.getLatLng();WATCH.lat=p.lat;WATCH.lng=p.lng;saveWatch();drawWatch();});
   }
 }
