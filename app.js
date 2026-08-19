@@ -137,36 +137,42 @@ async function fetchFlow(id,la,lo){
   try{
     const r=await fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/relative0/10/json?point=${la},${lo}&key=${window.TOMTOM_KEY}`);
     if(!r.ok)throw 0;const d=(await r.json()).flowSegmentData;
-    const rec={cs:d.currentSpeed,ff:d.freeFlowSpeed,closed:d.roadClosure,ratio:d.freeFlowSpeed?d.currentSpeed/d.freeFlowSpeed:1,ts:Date.now()};
+    const coords=((d.coordinates||{}).coordinate||[]).map(p=>[p.latitude,p.longitude]);
+    const rec={cs:d.currentSpeed,ff:d.freeFlowSpeed,tt:d.currentTravelTime,ft:d.freeFlowTravelTime,closed:d.roadClosure,conf:d.confidence,ratio:d.freeFlowSpeed?d.currentSpeed/d.freeFlowSpeed:1,coords,ts:Date.now()};
     FLOW[id]=rec;return rec;
   }catch(e){return null;}
 }
-function congColor(f){if(!f)return null;if(f.closed)return '#b00020';const r=f.ratio;return r>=.85?'#28c76f':r>=.55?'#ffc63d':'#ff5a5a';}
-function congText(f){if(!f)return '';if(f.closed)return '⛔ дорога перекрыта';const r=f.ratio;const w=r>=.85?'🟢 свободно':r>=.55?'🟡 местами плотно':'🔴 затор';return `${w} · ${f.cs} км/ч (обычно ${f.ff})`;}
+function congColor(f){if(!f)return null;if(f.closed)return '#7a0010';if(f.cs<=6)return '#c0002a';const r=f.ratio;return r>=.85?'#28c76f':r>=.55?'#ffc63d':r>=.3?'#ff8a3d':'#ff3b3b';}
+function congText(f){if(!f)return '';if(f.closed)return '⛔ дорога перекрыта';let w;if(f.cs<=6)w='🔴 стоят';else if(f.ratio>=.85)w='🟢 свободно';else if(f.ratio>=.55)w='🟡 местами плотно';else if(f.ratio>=.3)w='🟠 плотно';else w='🔴 затор';const dl=Math.round(((f.tt||0)-(f.ft||0))/60);return `${w} · ${f.cs} км/ч (обычно ${f.ff})`+(dl>=1?` · +${dl} мин`:'');}
 
-let trafficMode=false;const ringLayer=L.layerGroup();const rings={};let ringBusy=false;
-async function refreshRings(){
-  if(!trafficMode){for(const k in rings){ringLayer.removeLayer(rings[k]);delete rings[k];}$('trafficHint').style.display='none';return;}
-  if(map.getZoom()<14){for(const k in rings){ringLayer.removeLayer(rings[k]);delete rings[k];}$('trafficHint').style.display='block';$('trafficHint').textContent='🚦 приблизь карту, чтобы увидеть пробки у заправок';return;}
+let trafficMode=false;const lineLayer=L.layerGroup();const lines={};let ringBusy=false;
+async function refreshLines(){
+  if(!trafficMode){for(const k in lines){lineLayer.removeLayer(lines[k]);delete lines[k];}$('trafficHint').style.display='none';return;}
+  if(map.getZoom()<14){for(const k in lines){lineLayer.removeLayer(lines[k]);delete lines[k];}$('trafficHint').style.display='block';$('trafficHint').textContent='🚦 приблизь карту — покажу пробки на дорогах у заправок';return;}
   $('trafficHint').style.display='none';
   if(ringBusy)return;ringBusy=true;
   try{
     const b=map.getBounds();const vis=ST.filter(s=>b.contains([s.la,s.lo])).slice(0,25);
-    for(const s of vis){const f=await fetchFlow(s.id,s.la,s.lo);const c=congColor(f);if(!c)continue;
-      if(!rings[s.id]){rings[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,radius:11,weight:3,color:c,fill:false,interactive:false});ringLayer.addLayer(rings[s.id]);}
-      else rings[s.id].setStyle({color:c});
-    }
+    await Promise.all(vis.map(async s=>{
+      const f=await fetchFlow(s.id,s.la,s.lo);const c=congColor(f);if(!c||!f.coords||f.coords.length<2)return;
+      if(lines[s.id])lineLayer.removeLayer(lines[s.id]);
+      const g=L.layerGroup([
+        L.polyline(f.coords,{color:'#0b0d12',weight:9,opacity:.5,lineCap:'round',lineJoin:'round',interactive:false}),
+        L.polyline(f.coords,{color:c,weight:5,opacity:.95,lineCap:'round',lineJoin:'round',interactive:false})
+      ]);
+      lines[s.id]=g;lineLayer.addLayer(g);
+    }));
   }finally{ringBusy=false;}
 }
-ringLayer.addTo(map);
+lineLayer.addTo(map);
 let ringTimer=null;
-map.on('moveend zoomend',()=>{clearTimeout(ringTimer);ringTimer=setTimeout(refreshRings,400);});
+map.on('moveend zoomend',()=>{clearTimeout(ringTimer);ringTimer=setTimeout(refreshLines,400);});
 if(window.TOMTOM_KEY){
   $('traffic').onclick=()=>{trafficMode=!trafficMode;const b=$('traffic');
     if(trafficMode){b.style.background='var(--acc)';b.style.color='#231800';b.style.borderColor='transparent';b.style.fontWeight='600';}
     else{b.style.background='';b.style.color='';b.style.borderColor='';b.style.fontWeight='';}
     try{localStorage.setItem('br_traffic',trafficMode?'1':'0');}catch(e){}
-    refreshRings();$('drawer').classList.remove('open');};
+    refreshLines();$('drawer').classList.remove('open');};
   try{if(localStorage.getItem('br_traffic')==='1'){trafficMode=true;$('traffic').style.background='var(--acc)';$('traffic').style.color='#231800';$('traffic').style.borderColor='transparent';$('traffic').style.fontWeight='600';}}catch(e){}
 }else{const b=$('traffic');if(b)b.style.display='none';}
 
