@@ -19,12 +19,22 @@ function carsFromQ(q){
   if(/до\s*5|неболь/i.test(q)) return 3;
   return null;
 }
-function smartWait(s,flow){
-  let cars=carsFromQ(s.q), tmin=0;
-  if(flow){ if(flow.cs<=6)tmin=8; else if(flow.ratio<0.4)tmin=6; else if(flow.ratio<0.7)tmin=2; }
+async function entranceFlow(la,lo){
+  const pts=[[la,lo]].concat(ringPoints(la,lo,0.12,4),ringPoints(la,lo,0.25,4));
+  const fs=(await Promise.all(pts.map(p=>fetchPoint(p[0],p[1])))).filter(Boolean);
+  if(!fs.length)return null;
+  let worst=fs[0],jam=0;
+  for(const f of fs){ if((f.ratio==null?1:f.ratio)<(worst.ratio==null?1:worst.ratio))worst=f; if(f.closed||f.cs<=6||(f.ratio!=null&&f.ratio<0.4))jam++; }
+  return {worst:worst,jam:jam,n:fs.length};
+}
+function smartWait(s,agg){
+  let cars=carsFromQ(s.q), tmin=0, standing=false;
+  if(agg&&agg.worst){ const w=agg.worst;
+    if(w.closed||w.cs<=6){tmin=6+Math.min(agg.jam,4)*2; standing=true;}
+    else if(w.ratio<0.4)tmin=5; else if(w.ratio<0.7)tmin=2; }
   if(cars==null && !tmin) return null;
-  const mins=Math.round((cars||0)*2 + tmin);
-  return {mins:Math.max(mins,1), cars:cars!=null?Math.round(cars):null};
+  const mins=Math.max(Math.round((cars||0)*2 + tmin),1);
+  return {mins:mins, cars:cars!=null?Math.round(cars):null, jam:agg?agg.jam:0, standing:standing};
 }
 function refreshSmart(){
   if(!SMART){for(const k in smartRings){smartLayer.removeLayer(smartRings[k]);delete smartRings[k];}if(map.hasLayer(smartLayer))map.removeLayer(smartLayer);return;}
@@ -38,7 +48,7 @@ function refreshSmart(){
 function toggleSmart(){
   SMART=!SMART; try{localStorage.setItem('br_smart',SMART?'1':'0');}catch(e){}
   if(smartBtnEl)smartBtnEl.style.background=SMART?'#ffb020':'';
-  if(SMART)toast('🧠 Умная оценка очереди включена: совмещаю пробку на заезде и отметки водителей — показываю примерное время ожидания на заправках. Оранжевый круг = есть очередь.',7000);
+  if(SMART)toast('🧠 Умная оценка включена: при открытии АЗС замеряю пробку в нескольких точках прямо на заезде (TomTom) и совмещаю с отметками об очереди — показываю ~время ожидания. Оранжевый круг = есть очередь.',7000);
   else toast('Умная оценка выключена');
   refreshSmart();
 }
@@ -153,7 +163,7 @@ function openSheet(id){
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
   const ya=$('yamap');if(ya)ya.innerHTML='<iframe src="https://yandex.ru/map-widget/v1/?ll='+s.lo+'%2C'+s.la+'&z=18&l=map%2Ctrf&pt='+s.lo+'%2C'+s.la+'%2Cpm2rdm" width="100%" height="240" style="border:0" loading="lazy" referrerpolicy="no-referrer"></iframe>';
-  if(SMART){var el0=document.getElementById('smartLine');fetchPoint(s.la,s.lo).then(function(f){var w=smartWait(s,f);var el=document.getElementById('smartLine');if(el&&curId===id){el.innerHTML=w?('🧠 оценка ожидания: <b>~'+w.mins+' мин</b>'+(w.cars?' (~'+w.cars+' авто'+ (f&&f.cs<=6?' + стоят на заезде':'') +')':'')+' <span style="color:var(--mut)">примерно</span>'):'🧠 оценка ожидания: <span style="opacity:.6">очередь не отмечена</span>';}});}
+  if(SMART){entranceFlow(s.la,s.lo).then(function(agg){var w=smartWait(s,agg);var el=document.getElementById('smartLine');if(el&&curId===id){if(w){var det=[];if(w.cars)det.push('~'+w.cars+' авто');if(w.standing)det.push('стоят на заезде'+(w.jam>1?' ('+w.jam+' уч.)':''));el.innerHTML='🧠 оценка ожидания: <b>~'+w.mins+' мин</b>'+(det.length?' ('+det.join(' + ')+')':'')+' <span style="color:var(--mut)">примерно</span>';}else{el.innerHTML='🧠 оценка ожидания: <span style="opacity:.6">очередь и затор не обнаружены</span>';}}});}
   if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id){const f=segs&&segs[0];el.innerHTML='🚦 движение на заезд (оценка TomTom): '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');}});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
