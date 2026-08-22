@@ -3,7 +3,10 @@ import json,sys,math,datetime,time
 def load(p):
     try:
         d=json.load(open(p))
-        return d.get('stations',d) if isinstance(d,dict) else d
+        r=d.get('stations',d) if isinstance(d,dict) else d
+        if not isinstance(r,list): 
+            sys.stderr.write(f"warn: {p}: не список станций, пропускаю\n");return []
+        return [x for x in r if isinstance(x,dict)]
     except Exception as e:
         sys.stderr.write(f"warn: {p}: {e}\n");return []
 
