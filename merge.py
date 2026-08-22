@@ -24,6 +24,20 @@ LBL={'АИ-92':'92','АИ-95':'95','АИ-98':'98','АИ-100':'100','ДТ':'ДТ'
 PKEY={'ai92':'92','ai95':'95','ai98':'98','ai100':'100','dt':'ДТ','gas':'газ'}
 AKEY={'AI-92':'92','AI-95':'95','AI-98':'98','AI-100':'100','DT':'ДТ'}
 def nlbl(x):return LBL.get(x,x)
+def bucket(x):
+    if x in ('yes','available','ok'): return 'y'
+    if x in ('no','none','empty'): return 'n'
+    if x in ('queue','low','limited'): return 'p'
+    return None
+def decay(age):
+    if age is None: return 0.35
+    m=age/60.0
+    if m<=30: return 1.0
+    if m<=120: return 0.6
+    if m<=360: return 0.3
+    return 0.1
+WK={'tbank-confirmed':3.0,'tbank':2.0,'gdebenzi':2.0,'benzrf':1.0,'азсрадар':1.0,'gdebenz':1.0}
+CANON={'y':'yes','n':'no','p':'low'}
 
 # пространственный индекс
 def cell(la,lo):return (round(la,3),round(lo,3))
@@ -54,20 +68,48 @@ for s in g0:
     if a:usedA.add(id(a))
     b=near(BR,la,lo,'lat','lng')
     if b:usedB.add(id(b))
-    cand=[]
-    if m1 and m1.get('status'): cand.append((m1['status'], int(m1.get('markts') or 0), 'gdebenzi'))
+    # взвешенное голосование: доверие(источник) x свежесть(время)
+    cands=[]
+    if s.get('status'): cands.append((bucket(s['status']), None, 'gdebenz'))
+    if m1 and m1.get('status'):
+        mt=int(m1['markts']) if m1.get('markts') else None
+        cands.append((bucket(m1['status']), (NOW-mt) if mt else None, 'gdebenzi'))
     if a:
         am={'ok':'yes','empty':'no'}.get(a.get('status'))
-        if am: cand.append((am, int(isots(a.get('status_updated_at') or '')), 'азсрадар'))
+        if am:
+            at=int(isots(a.get('status_updated_at') or '')) or None
+            cands.append((bucket(am), (NOW-at) if at else None, 'азсрадар'))
     if b:
         bm=BST.get(b.get('status'))
-        if bm: cand.append((bm, int((b.get('lastReportAt') or 0)/1000), 'benzrf'))
-    cand=[c for c in cand if c[1]>0]
-    st=s.get('status'); sts=None; stssrc=('gdebenz' if st else None)
-    if cand:
-        best=max(cand,key=lambda c:c[1])
-        if (not st) or (NOW-best[1] < 12*3600):
-            st=best[0]; sts=best[1]; stssrc=best[2]
+        if bm:
+            kind=b.get('statusSource') if b.get('statusSource') in ('tbank','tbank-confirmed') else 'benzrf'
+            bt=int((b.get('lastReportAt') or 0)/1000) or None
+            cands.append((bucket(bm), (NOW-bt) if bt else None, kind))
+    cands=[c for c in cands if c[0]]
+    score={}
+    for bk,age,kind in cands:
+        w=WK.get(kind,1.0)*decay(age)
+        e=score.setdefault(bk,[0.0,kind,age if age is not None else 10**9])
+        e[0]+=w
+        a2=age if age is not None else 10**9
+        if a2<e[2]: e[2]=a2; e[1]=kind
+    st=None; sts=None; stssrc=None; weak=True; frac=0.0; totw=0.0
+    if score:
+        totw=sum(v[0] for v in score.values())
+        best_bk=max(score,key=lambda k:score[k][0]); e=score[best_bk]
+        st=CANON[best_bk]; stssrc=e[1]
+        if e[2]<10**9: sts=NOW-e[2]
+        frac=(e[0]/totw) if totw else 0.0
+        weak=e[0]<0.7
+    if stssrc in ('tbank','tbank-confirmed'): stssrc='benzrf'
+    tbank=bool(b and b.get('statusSource') in ('tbank','tbank-confirmed'))
+    ageMin=int((NOW-sts)/60) if sts else None
+    if not st: lvl='none'
+    elif weak: lvl='low'
+    elif totw>=2.5 and frac>=0.7: lvl='high'
+    elif totw>=1.2 and frac>=0.6: lvl='mid'
+    else: lvl='low'
+    rel={'lvl':lvl,'total':len(cands),'tbank':tbank,'ageMin':ageMin,'weak':weak}
     # очередь в машинах
     q=None;qsrc=None
     if m1 and m1.get('queueTxt'):q=m1['queueTxt'];qsrc='gdebenzi'
@@ -100,34 +142,6 @@ for s in g0:
         lim={nlbl(k):v for k,v in m1['limits'].items()}
     if lim is None and b and b.get('limitLiters'):
         lim={'все':b['limitLiters']}
-    # --- надёжность: согласие источников + T-Bank + свежесть ---
-    def bucket(x):
-        if x in ('yes','available','ok'): return 'y'
-        if x in ('no','none','empty'): return 'n'
-        if x in ('queue','low','limited'): return 'p'
-        return None
-    fb=bucket(st)
-    agree=0; total=0
-    for src_st in [s.get('status'),
-                   (m1.get('status') if m1 else None),
-                   ({'ok':'yes','empty':'no'}.get(a.get('status')) if a else None),
-                   (BST.get(b.get('status')) if b else None)]:
-        bk=bucket(src_st)
-        if bk: 
-            total+=1
-            if fb and bk==fb: agree+=1
-    tbank = bool(b and b.get('statusSource') in ('tbank','tbank-confirmed'))
-    ageMin = int((NOW-sts)/60) if sts else None
-    lvl='low'
-    if agree>=3: lvl='high'
-    elif agree==2: lvl='mid'
-    if tbank and lvl=='low': lvl='mid'
-    if tbank and agree>=2: lvl='high'
-    if ageMin is None: lvl='low'
-    elif ageMin>360: lvl='low'
-    elif ageMin>120: lvl={'high':'mid','mid':'low','low':'low'}[lvl]
-    if not st: lvl='none'
-    rel={'lvl':lvl,'agree':agree,'total':total,'tbank':tbank,'ageMin':ageMin}
     conf=None;nrep=None
     if m1:
         if m1.get('confPct') is not None:conf=m1['confPct']
@@ -154,7 +168,7 @@ def add_extra(lst,latk,lok,getst,getname,used,srcname):
         out.append({'id':srcname+':'+str(o.get('id')),'n':getname(o) or 'АЗС','b':o.get('brand') or '',
                     'la':round(la,6),'lo':round(lo,6),'ad':o.get('address') or '',
                     's':st,'fn':'','no':'','q':(o.get('queueTxt') if srcname=='gdebenzi' else None),
-                    'qsrc':srcname,'sts':int(o.get('markts')) if o.get('markts') else None,'stssrc':srcname,'lim':None,'pr':{},'src':[srcname]})
+                    'qsrc':srcname,'sts':int(o.get('markts')) if o.get('markts') else None,'stssrc':srcname,'lim':None,'pr':{},'conf':None,'nrep':None,'rel':{'lvl':'low','total':1,'tbank':False,'ageMin':None,'weak':True},'src':[srcname]})
         base_idx.setdefault(cell(la,lo),[]).append(out[-1]);cnt+=1
     return cnt
 e1=add_extra(g1,'lat','lon',lambda o:o.get('status') if (NOW-(o.get('markts') or 0)<12*3600) else None,lambda o:o.get('name'),used1,'gdebenzi')

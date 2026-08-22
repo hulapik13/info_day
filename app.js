@@ -54,7 +54,7 @@ function refresh(){
     const eff=effective(s);
     const hasFriend=REPORTS[s.id]&&Date.now()-REPORTS[s.id].ts<3600e3;if(hasFriend)fresh++;
     const rad=s.s&&s.s!=='no'?6:(s.s?5:4);
-    const stale=s.sts&&(Date.now()-s.sts*1000>6*3600e3);
+    const stale=(s.sts&&(Date.now()-s.sts*1000>6*3600e3))||(s.rel&&s.rel.weak);
     const fav=isFav(s.id);
     const style={radius:fav?rad+1.5:rad,fillColor:eff.col,weight:(hasFriend||fav)?2.6:1,color:hasFriend?'#2b9bf4':(fav?'#ffb020':'#0b0d12'),fillOpacity:s.s?(stale?.45:.9):.4};
     if(!markers[s.id]){markers[s.id]=L.circleMarker([s.la,s.lo],{renderer:canvas,...style}).on('click',()=>openSheet(s.id)).addTo(map);}
@@ -95,7 +95,7 @@ function openSheet(id){
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
     ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 движение на заезд: <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · источник: <b>'+esc(s.stssrc)+'</b>':''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
-    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}${s.rel?(function(){var RL={high:['🟢 высокая','#28c76f'],mid:['🟡 средняя','#ffc63d'],low:['🔴 низкая','#ff5a5a'],none:['нет данных','#9aa4b2']};var r=s.rel;var q=RL[r.lvl]||RL.none;var w=[];if(r.total)w.push(r.agree+'/'+r.total+' источн.');if(r.tbank)w.push('T-Bank ✓');if(r.ageMin!=null)w.push(r.ageMin<=1?'только что':(r.ageMin<60?r.ageMin+' мин':Math.round(r.ageMin/60)+' ч'));return '<div style="font-size:11px;color:var(--mut);margin-top:3px">🔎 надёжность: <b style="color:'+q[1]+'">'+q[0]+'</b>'+(w.length?' · '+w.join(' · '):'')+'</div>';})():''}
+    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}${s.rel?(function(){var RL={high:['🟢 высокая','#28c76f'],mid:['🟡 средняя','#ffc63d'],low:['🔴 низкая','#ff5a5a'],none:['нет данных','#9aa4b2']};var r=s.rel;var q=RL[r.lvl]||RL.none;var w=[];if(r.total)w.push(r.total+' источн.');if(r.tbank)w.push('T-Bank ✓');if(r.weak)w.push('мало данных');if(r.ageMin!=null)w.push(r.ageMin<=1?'только что':(r.ageMin<60?r.ageMin+' мин':Math.round(r.ageMin/60)+' ч'));return '<div style="font-size:11px;color:var(--mut);margin-top:3px">🔎 надёжность: <b style="color:'+q[1]+'">'+q[0]+'</b>'+(w.length?' · '+w.join(' · '):'')+'</div>';})():''}
     <div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
