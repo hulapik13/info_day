@@ -458,7 +458,7 @@ if(window.TOMTOM_KEY){
 
 loadLive();
 setInterval(loadLive,180000);
-setInterval(async function(){try{if(window.caches){var ks=await caches.keys();for(var i=0;i<ks.length;i++)await caches.delete(ks[i]);}}catch(e){}loadLive();},420000);
+setInterval(async function(){try{if(window.caches){var ks=await caches.keys();for(var i=0;i<ks.length;i++)await caches.delete(ks[i]);}}catch(e){}loadLive();},180000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadLive();});
 window.addEventListener('focus',()=>loadLive());
 drawWatch();
