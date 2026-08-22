@@ -29,10 +29,13 @@ async function entranceFlow(la,lo){
 }
 function smartWait(s,agg){
   let cars=carsFromQ(s.q), tmin=0, standing=false;
-  if(agg&&agg.worst){ const w=agg.worst;
+  const hasTraffic = !!(agg && agg.n>0);   // TomTom реально видит дорогу у заезда
+  if(hasTraffic){ const w=agg.worst;
     if(w.closed||w.cs<=6){tmin=6+Math.min(agg.jam,4)*2; standing=true;}
     else if(w.ratio<0.4)tmin=5; else if(w.ratio<0.7)tmin=2; }
-  if(cars==null && !tmin) return null;
+  if(cars==null && tmin===0){
+    return hasTraffic ? {free:true} : {unknown:true};
+  }
   const mins=Math.max(Math.round((cars||0)*2 + tmin),1);
   return {mins:mins, cars:cars!=null?Math.round(cars):null, jam:agg?agg.jam:0, standing:standing};
 }
@@ -163,7 +166,7 @@ function openSheet(id){
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
   const ya=$('yamap');if(ya)ya.innerHTML='<iframe src="https://yandex.ru/map-widget/v1/?ll='+s.lo+'%2C'+s.la+'&z=18&l=map%2Ctrf&pt='+s.lo+'%2C'+s.la+'%2Cpm2rdm" width="100%" height="240" style="border:0" loading="lazy" referrerpolicy="no-referrer"></iframe>';
-  if(SMART){entranceFlow(s.la,s.lo).then(function(agg){var w=smartWait(s,agg);var el=document.getElementById('smartLine');if(el&&curId===id){if(w){var det=[];if(w.cars)det.push('~'+w.cars+' авто');if(w.standing)det.push('стоят на заезде'+(w.jam>1?' ('+w.jam+' уч.)':''));el.innerHTML='🧠 оценка ожидания: <b>~'+w.mins+' мин</b>'+(det.length?' ('+det.join(' + ')+')':'')+' <span style="color:var(--mut)">примерно</span>';}else{el.innerHTML='🧠 оценка ожидания: <span style="opacity:.6">очередь и затор не обнаружены</span>';}}});}
+  if(SMART){entranceFlow(s.la,s.lo).then(function(agg){var w=smartWait(s,agg);var el=document.getElementById('smartLine');if(el&&curId===id){if(w&&w.mins){var det=[];if(w.cars)det.push('~'+w.cars+' авто');if(w.standing)det.push('стоят на заезде'+(w.jam>1?' ('+w.jam+' уч.)':''));el.innerHTML='🧠 оценка ожидания: <b>~'+w.mins+' мин</b>'+(det.length?' ('+det.join(' + ')+')':'')+' <span style="color:var(--mut)">примерно</span>';}else if(w&&w.free){el.style.color='var(--g)';el.innerHTML='🧠 заезд свободен — пробок и очереди не видно';}else{el.style.color='var(--mut)';el.innerHTML='🧠 по заезду нет данных TomTom — глянь пробки на карте Яндекса выше 👆';}}});}
   if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id){const f=segs&&segs[0];el.innerHTML='🚦 движение на заезд (оценка TomTom): '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');}});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
@@ -455,6 +458,7 @@ if(window.TOMTOM_KEY){
 
 loadLive();
 setInterval(loadLive,180000);
+setInterval(async function(){try{if(window.caches){var ks=await caches.keys();for(var i=0;i<ks.length;i++)await caches.delete(ks[i]);}}catch(e){}loadLive();},420000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadLive();});
 window.addEventListener('focus',()=>loadLive());
 drawWatch();
