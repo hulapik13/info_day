@@ -7,6 +7,53 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribu
 const canvas=L.canvas({padding:.5});map.attributionControl.setPrefix(false);
 map.createPane('trafficPane');map.getPane('trafficPane').style.zIndex=350;map.getPane('trafficPane').style.pointerEvents='none';
 const trafficRenderer=L.canvas({pane:'trafficPane',padding:.5});
+// ---- умная оценка очереди (пробка на заезде + отметки) ----
+let SMART=false, smartBtnEl=null;
+const smartLayer=L.layerGroup(); const smartRings={};
+function carsFromQ(q){
+  if(!q)return null;
+  const n=(String(q).match(/\d+/g)||[]).map(Number);
+  if(/больше|более|от\s|\+/i.test(q)&&n.length) return n[n.length-1]*1.4;
+  if(n.length>=2) return (n[0]+n[1])/2;
+  if(n.length===1) return n[0];
+  if(/до\s*5|неболь/i.test(q)) return 3;
+  return null;
+}
+function smartWait(s,flow){
+  let cars=carsFromQ(s.q), tmin=0;
+  if(flow){ if(flow.cs<=6)tmin=8; else if(flow.ratio<0.4)tmin=6; else if(flow.ratio<0.7)tmin=2; }
+  if(cars==null && !tmin) return null;
+  const mins=Math.round((cars||0)*2 + tmin);
+  return {mins:Math.max(mins,1), cars:cars!=null?Math.round(cars):null};
+}
+function refreshSmart(){
+  if(!SMART){for(const k in smartRings){smartLayer.removeLayer(smartRings[k]);delete smartRings[k];}if(map.hasLayer(smartLayer))map.removeLayer(smartLayer);return;}
+  smartLayer.addTo(map);
+  const b=map.getBounds(); const vis=new Set();
+  for(const s of ST){ if(!s.q||!b.contains([s.la,s.lo])||!visible(s))continue; vis.add(s.id);
+    if(!smartRings[s.id]){smartRings[s.id]=L.circleMarker([s.la,s.lo],{renderer:trafficRenderer,radius:10,weight:2.5,color:'#ff8a3d',fill:false,interactive:false});smartLayer.addLayer(smartRings[s.id]);}
+  }
+  for(const k in smartRings){if(!vis.has(k)){smartLayer.removeLayer(smartRings[k]);delete smartRings[k];}}
+}
+function toggleSmart(){
+  SMART=!SMART; try{localStorage.setItem('br_smart',SMART?'1':'0');}catch(e){}
+  if(smartBtnEl)smartBtnEl.style.background=SMART?'#ffb020':'';
+  if(SMART)toast('🧠 Умная оценка очереди включена: совмещаю пробку на заезде и отметки водителей — показываю примерное время ожидания на заправках. Оранжевый круг = есть очередь.',7000);
+  else toast('Умная оценка выключена');
+  refreshSmart();
+}
+const SmartCtl=L.Control.extend({options:{position:'topleft'},onAdd:function(){
+  const d=L.DomUtil.create('div','leaflet-bar');
+  const a=L.DomUtil.create('a','',d);
+  a.href='#'; a.title='Умная оценка очереди'; a.innerHTML='🧠';
+  a.style.fontSize='17px'; a.style.textAlign='center'; a.style.lineHeight='30px';
+  L.DomEvent.on(a,'click',L.DomEvent.stop); L.DomEvent.on(a,'click',toggleSmart);
+  smartBtnEl=a; return d;
+}});
+map.addControl(new SmartCtl());
+map.on('moveend',()=>{if(SMART)refreshSmart();});
+try{if(localStorage.getItem('br_smart')==='1'){SMART=true;setTimeout(()=>{if(smartBtnEl)smartBtnEl.style.background='#ffb020';refreshSmart();},100);}}catch(e){}
+
 const FORDER=['92','95','98','100','ДТ'];
 
 let ST=[],IDX={},REPORTS={},MY=null,fetchedAt=0;
@@ -95,7 +142,8 @@ function openSheet(id){
     <span class="st" style="background:${SBG[s.s]||'#2a3140'};color:${SCOL[s.s]||'var(--mut)'}">${esc(SLAB[s.s]||'нет данных наличия')}</span>
     ${window.TOMTOM_KEY?`<div id="flowLine" style="font-size:13px;margin:6px 0;color:var(--mut)">🚦 движение на заезд: <span style="opacity:.7">проверяю…</span></div>`:''}
     ${s.sts?`<div style="font-size:11px;color:${Date.now()-s.sts*1000>6*3600e3?'var(--o)':'var(--mut)'}">🕐 наличие обновлено <b>${ago(s.sts*1000)}</b>${s.stssrc?' · источник: <b>'+esc(s.stssrc)+'</b>':''}</div>`:`<div style="font-size:11px;color:var(--mut)">🕐 источник не публикует время обновления</div>`}
-    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}${s.rel?(function(){var RL={high:['🟢 высокая','#28c76f'],mid:['🟡 средняя','#ffc63d'],low:['🟠 слабая','#ff8a3d'],stale:['⚫ устарело','#9aa4b2'],none:['нет данных','#9aa4b2']};var r=s.rel;var q=RL[r.lvl]||RL.none;var w=[];if(r.total)w.push(r.total+' источн.');if(r.tbank)w.push('T-Bank ✓');if(r.weak)w.push('мало данных');if(r.ageMin!=null)w.push(r.ageMin<=1?'только что':(r.ageMin<60?r.ageMin+' мин':Math.round(r.ageMin/60)+' ч'));return '<div style="font-size:11px;color:var(--mut);margin-top:3px">🔎 надёжность: <b style="color:'+q[1]+'">'+q[0]+'</b>'+(w.length?' · '+w.join(' · '):'')+'</div>';})():''}
+    ${s.q?`<div style="font-size:14px;color:var(--y);margin:6px 0">🚗 <b>${esc(s.q)}</b> <span style="color:var(--mut);font-size:11px">(${esc(s.qsrc||'')})</span></div>`:''}
+    ${SMART?`<div id="smartLine" style="font-size:13px;color:var(--o);margin:4px 0">🧠 оценка ожидания: <span style="opacity:.7">считаю…</span></div>`:''}${s.rel?(function(){var RL={high:['🟢 высокая','#28c76f'],mid:['🟡 средняя','#ffc63d'],low:['🟠 слабая','#ff8a3d'],stale:['⚫ устарело','#9aa4b2'],none:['нет данных','#9aa4b2']};var r=s.rel;var q=RL[r.lvl]||RL.none;var w=[];if(r.total)w.push(r.total+' источн.');if(r.tbank)w.push('T-Bank ✓');if(r.weak)w.push('мало данных');if(r.ageMin!=null)w.push(r.ageMin<=1?'только что':(r.ageMin<60?r.ageMin+' мин':Math.round(r.ageMin/60)+' ч'));return '<div style="font-size:11px;color:var(--mut);margin-top:3px">🔎 надёжность: <b style="color:'+q[1]+'">'+q[0]+'</b>'+(w.length?' · '+w.join(' · '):'')+'</div>';})():''}
     <div style="font-size:11px;color:var(--mut)">есть сейчас / нет сейчас:</div><div class="pf">${pf}</div>${limHtml(s)}
     ${priceBlock}${fr}
     <div style="font-size:11px;color:var(--acc)">▸ свежее: ${eff.src==='friend'?'отметка друзей':'данные ГдеБенз'}</div>
@@ -105,6 +153,7 @@ function openSheet(id){
   $('sheet').classList.add('on');$('backdrop').classList.add('on');
   try{map.setView([s.la,s.lo],Math.max(map.getZoom(),14),{animate:false});map.panBy([0,-map.getSize().y*0.24],{animate:false});}catch(e){}
   const ya=$('yamap');if(ya)ya.innerHTML='<iframe src="https://yandex.ru/map-widget/v1/?ll='+s.lo+'%2C'+s.la+'&z=18&l=map%2Ctrf&pt='+s.lo+'%2C'+s.la+'%2Cpm2rdm" width="100%" height="240" style="border:0" loading="lazy" referrerpolicy="no-referrer"></iframe>';
+  if(SMART){var el0=document.getElementById('smartLine');fetchPoint(s.la,s.lo).then(function(f){var w=smartWait(s,f);var el=document.getElementById('smartLine');if(el&&curId===id){el.innerHTML=w?('🧠 оценка ожидания: <b>~'+w.mins+' мин</b>'+(w.cars?' (~'+w.cars+' авто'+ (f&&f.cs<=6?' + стоят на заезде':'') +')':'')+' <span style="color:var(--mut)">примерно</span>'):'🧠 оценка ожидания: <span style="opacity:.6">очередь не отмечена</span>';}});}
   if(window.TOMTOM_KEY)showArea(id,s.la,s.lo).then(segs=>{const el=$('flowLine');if(el&&curId===id){const f=segs&&segs[0];el.innerHTML='🚦 движение на заезд (оценка TomTom): '+(f?`<b style="color:${congColor(f)}">${congText(f)}</b>`:'<span style="opacity:.6">нет данных</span>');}});
   setTimeout(()=>{
     document.querySelectorAll('.mini[data-f]').forEach(el=>el.onclick=()=>{const f=el.dataset.f,v=el.dataset.v;document.querySelectorAll(`.mini[data-f="${f}"]`).forEach(x=>x.classList.remove('yes','no'));if(curPick[f]===v)delete curPick[f];else{curPick[f]=v;el.classList.add(v);}});
