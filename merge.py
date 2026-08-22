@@ -104,11 +104,16 @@ for s in g0:
     if stssrc in ('tbank','tbank-confirmed'): stssrc='benzrf'
     tbank=bool(b and b.get('statusSource') in ('tbank','tbank-confirmed'))
     ageMin=int((NOW-sts)/60) if sts else None
+    # уровень по свежести: <=45м высокая, <=90м средняя, <=150м слабая, старше — устарело
+    if ageMin is None: lvl='stale'
+    elif ageMin<=45: lvl='high'
+    elif ageMin<=90: lvl='mid'
+    elif ageMin<=150: lvl='low'
+    else: lvl='stale'
+    order=['stale','low','mid','high']
+    if frac and frac<0.6 and lvl in ('high','mid','low'): lvl=order[max(0,order.index(lvl)-1)]
     if not st: lvl='none'
-    elif weak: lvl='low'
-    elif totw>=2.5 and frac>=0.7: lvl='high'
-    elif totw>=1.2 and frac>=0.6: lvl='mid'
-    else: lvl='low'
+    weak=lvl in ('stale','low','none')
     rel={'lvl':lvl,'total':len(cands),'tbank':tbank,'ageMin':ageMin,'weak':weak}
     # очередь в машинах
     q=None;qsrc=None
