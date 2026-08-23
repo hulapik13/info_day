@@ -292,7 +292,7 @@ function checkNotify(){
   prevFuels=cur;
 }
 function fireNotify(s,fuels){
-  const msg='Появился '+fuels.join(', ')+' — '+s.n+(MY?' · '+myDist(s).toFixed(1)+' км':'');
+  const msg='Появился '+fuels.join(', ')+' — '+s.n+(s.ad?', '+s.ad:'')+(MY?' · '+myDist(s).toFixed(1)+' км':'');
   toast('⛽ '+msg,7000);
   try{
     if(window.AndroidBridge&&AndroidBridge.notifyAt){AndroidBridge.notifyAt('⛽ Бензин-радар',msg,String(s.id),s.la,s.lo);return;}
