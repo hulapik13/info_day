@@ -190,12 +190,24 @@ window.initRealtime=function(){window.__db.ref('reports').limitToLast(4000).on('
 function updateSrcLabel(){if(!fetchedAt)return;const mins=Math.round((Date.now()-fetchedAt)/60000);$('src').innerHTML='обновлено '+(mins<=1?'только что':mins+' мин назад');}
 setInterval(updateSrcLabel,30000);
 async function loadLive(){
-  try{let r;try{r=await fetch('live.json?t='+Date.now());if(!r.ok)throw 0;}catch(_){r=await fetch('https://raw.githubusercontent.com/hulapik13/info_day/master/live.json?t='+Date.now());}
-    const d=await r.json();ST=d.stations||[];IDX={};ST.forEach(s=>IDX[s.id]=s);fetchedAt=Date.parse(d.fetched_at)||Date.now();
-    updateSrcLabel();
-    for(const id in markers)if(!IDX[id]){map.removeLayer(markers[id]);delete markers[id];}
-    refresh();checkNotify();
-  }catch(e){$('warn').style.display='block';$('warn').textContent='Не удалось загрузить наличие: '+e.message;}
+  let d=null;
+  for(let att=0;att<3 && !d;att++){
+    try{
+      const r=await fetch('live.json?t='+Date.now(),{cache:'no-store'});
+      if(!r.ok)throw new Error('http '+r.status);
+      d=await r.json();
+    }catch(e){ if(att<2) await new Promise(res=>setTimeout(res,1200+att*1500)); }
+  }
+  if(!d){
+    // сеть подвисла: если данные уже показаны — молчим, держим старое; иначе мягкое сообщение
+    if(!ST.length){$('warn').style.display='block';$('warn').textContent='Загружаю данные… (проверь интернет)';}
+    return;
+  }
+  $('warn').style.display='none';
+  ST=d.stations||[];IDX={};ST.forEach(s=>IDX[s.id]=s);fetchedAt=Date.parse(d.fetched_at)||Date.now();
+  updateSrcLabel();
+  for(const id in markers)if(!IDX[id]){map.removeLayer(markers[id]);delete markers[id];}
+  refresh();checkNotify();
 }
 function saveState(){try{localStorage.setItem('br_filters',JSON.stringify({st:[...state.st],fuel:[...state.fuel],q:state.q}));}catch(e){}}
 function restoreState(){try{const d=JSON.parse(localStorage.getItem('br_filters')||'{}');
@@ -458,7 +470,7 @@ if(window.TOMTOM_KEY){
 
 loadLive();
 setInterval(loadLive,180000);
-setInterval(async function(){try{if(window.caches){var ks=await caches.keys();for(var i=0;i<ks.length;i++)await caches.delete(ks[i]);}}catch(e){}loadLive();},180000);
+
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadLive();});
 window.addEventListener('focus',()=>loadLive());
 drawWatch();
