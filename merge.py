@@ -154,7 +154,7 @@ for s in g0:
     if conf is None and a and a.get('confidence_percent') is not None:conf=a['confidence_percent']
     srcs=['gdebenz']+(['gdebenzi'] if m1 else [])+(['азсрадар'] if a else [])+(['benzrf'] if b else [])
     out.append({'id':s['osm_id'],'n':s.get('name') or 'АЗС','b':s.get('brand') or '',
-                'la':round(la,6),'lo':round(lo,6),'ad':s.get('addr') or '',
+                'la':round(la,6),'lo':round(lo,6),'ad':(s.get('addr') or (b.get('address') if b else '') or (m1.get('address') if m1 else '') or (a.get('address') if a else '') or ''),
                 's':st,'fn':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in avail]),
                 'no':','.join([f for f in ['92','95','98','100','ДТ','газ'] if f in no]),
                 'q':q,'qsrc':qsrc,'sts':sts,'stssrc':stssrc,'conf':conf,'nrep':nrep,'rel':rel,'lim':lim,'pr':pr,'src':srcs})
