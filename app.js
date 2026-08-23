@@ -275,6 +275,7 @@ function drawWatch(){
 map.on('click',function(e){if(pickMode){pickMode=false;WATCH.mode='point';WATCH.lat=e.latlng.lat;WATCH.lng=e.latlng.lng;saveWatch();drawWatch();openWatch();toast('Центр уведомлений установлен');}});
 let prevFuels=null;
 function checkNotify(){
+  if(window.AndroidBridge){return;} // в приложении уведомляет нативный фоновый сервис (без дублей)
   if(!WATCH.on){prevFuels=null;return;}
   const want=WATCH.fuels.length?WATCH.fuels:['92','95','98','100','ДТ'];
   const ctr=watchCenter();
